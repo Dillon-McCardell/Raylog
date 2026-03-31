@@ -10,6 +10,14 @@
     "Developer Tools"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dillon-McCardell/Raylog.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Dillon-McCardell/Raylog/issues"
+  },
+  "homepage": "https://github.com/Dillon-McCardell/Raylog/blob/main/README.md",
   "commands": [
     {
       "name": "list-tasks",
