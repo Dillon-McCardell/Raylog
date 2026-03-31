@@ -1,0 +1,72 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "raylog",
+  "title": "Raylog",
+  "description": "Manage local markdown-backed tasks from Raycast.",
+  "icon": "icon.png",
+  "author": "dillon-mccardell",
+  "categories": [
+    "Productivity",
+    "Developer Tools"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "list-tasks",
+      "title": "List Tasks",
+      "description": "Browse, search, edit, and complete Raylog tasks.",
+      "mode": "view"
+    },
+    {
+      "name": "add-task",
+      "title": "Add Task",
+      "description": "Create a new Raylog task.",
+      "mode": "view"
+    }
+  ],
+  "keywords": [
+    "tasks",
+    "notes",
+    "markdown",
+    "obsidian",
+    "productivity"
+  ],
+  "preferences": [
+    {
+      "name": "storageNotePath",
+      "type": "file",
+      "required": true,
+      "title": "Storage Note",
+      "description": "Markdown note used for Raylog storage.",
+      "label": "Storage Note"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.94.3",
+    "@raycast/utils": "^1.19.1",
+    "date-fns": "^4.1.0",
+    "nanoid": "^5.1.5",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "20.8.10",
+    "@types/react": "19.0.12",
+    "eslint": "^8.57.1",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "test": "node --import tsx --test ./test/*.test.ts",
+    "prepublishOnly": "echo \"\\n\\nIt seems like you are trying to publish the Raycast extension to npm.\\n\\nIf you did intend to publish it to npm, remove the \\`prepublishOnly\\` script and rerun \\`npm publish\\` again.\\nIf you wanted to publish it to the Raycast Store instead, use \\`npm run publish\\` instead.\\n\\n\" && exit 1",
+    "publish": "npx @raycast/api@latest publish"
+  },
+  "platforms": [
+    "macOS"
+  ]
+}
