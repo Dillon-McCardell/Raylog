@@ -323,7 +323,6 @@ function TaskItem({
       }
       actions={
         <ActionPanel>
-          <TaskFilterActions onSelectFilter={onSelectFilter} />
           <ActionPanel.Section>
             <Action.Push
               title="Edit Task"
@@ -401,6 +400,7 @@ function TaskItem({
               shortcut={{ modifiers: ["cmd"], key: "n" }}
             />
           </ActionPanel.Section>
+          <TaskFilterActions onSelectFilter={onSelectFilter} />
           <ActionPanel.Section>
             <Action
               title="Open Extension Preferences"
