@@ -6,12 +6,18 @@ import {
   RAYLOG_SCHEMA_VERSION,
   RAYLOG_START_MARKER,
 } from "./constants";
-import type { RaylogDocument, TaskInput, TaskRecord } from "./types";
+import type {
+  RaylogDocument,
+  TaskInput,
+  TaskRecord,
+  TaskStatus,
+} from "./types";
 
 export class RaylogStorageError extends Error {}
 export class RaylogConfigurationError extends RaylogStorageError {}
 export class RaylogParseError extends RaylogStorageError {}
 export class RaylogTaskNotFoundError extends RaylogStorageError {}
+export class RaylogSchemaError extends RaylogStorageError {}
 
 const BLOCK_PATTERN = new RegExp(
   `${escapeForRegExp(RAYLOG_START_MARKER)}\\s*${escapeForRegExp("```json")}\\s*([\\s\\S]*?)\\s*${escapeForRegExp("```")}\\s*${escapeForRegExp(RAYLOG_END_MARKER)}`,
@@ -50,10 +56,12 @@ export function parseRaylogMarkdown(markdown: string): {
     if (
       typeof parsed !== "object" ||
       parsed === null ||
-      typeof parsed.schemaVersion !== "number" ||
+      parsed.schemaVersion !== RAYLOG_SCHEMA_VERSION ||
       !Array.isArray(parsed.tasks)
     ) {
-      throw new Error("Missing required Raylog document properties.");
+      throw new RaylogSchemaError(
+        "The configured storage note does not use the current Raylog schema.",
+      );
     }
 
     return {
@@ -64,6 +72,10 @@ export function parseRaylogMarkdown(markdown: string): {
       hasManagedBlock: true,
     };
   } catch (error) {
+    if (error instanceof RaylogSchemaError) {
+      throw error;
+    }
+
     throw new RaylogParseError(
       error instanceof Error
         ? error.message
@@ -102,6 +114,15 @@ export async function ensureStorageNote(notePath: string): Promise<void> {
   }
 }
 
+export async function resetStorageNote(notePath: string): Promise<void> {
+  await validateStorageNotePath(notePath);
+  const markdown = await fs.promises.readFile(notePath, "utf8");
+  await writeMarkdownAtomically(
+    notePath,
+    mergeRaylogMarkdown(markdown, createEmptyDocument()),
+  );
+}
+
 export async function validateStorageNotePath(
   notePath?: string,
 ): Promise<void> {
@@ -137,13 +158,7 @@ export class RaylogRepository {
   constructor(private readonly notePath: string) {}
 
   async listTasks(): Promise<TaskRecord[]> {
-    const document = await this.readDocument();
-    return [...document.tasks].sort((left, right) => {
-      if (left.completed !== right.completed) {
-        return left.completed ? 1 : -1;
-      }
-      return right.updatedAt.localeCompare(left.updatedAt);
-    });
+    return (await this.readDocument()).tasks;
   }
 
   async getTask(taskId: string): Promise<TaskRecord> {
@@ -161,14 +176,15 @@ export class RaylogRepository {
 
   async createTask(input: TaskInput): Promise<TaskRecord> {
     const now = new Date().toISOString();
+    const status = input.status ?? "open";
     const task: TaskRecord = {
       id: nanoid(),
       header: input.header.trim(),
       body: input.body?.trim() ?? "",
+      status,
       dueDate: input.dueDate ?? null,
       startDate: input.startDate ?? null,
-      finishDate: input.finishDate ?? null,
-      completed: false,
+      completedAt: status === "done" ? now : null,
       createdAt: now,
       updatedAt: now,
     };
@@ -195,9 +211,14 @@ export class RaylogRepository {
           ...task,
           header: input.header.trim(),
           body: input.body?.trim() ?? "",
+          status: input.status ?? task.status,
           dueDate: input.dueDate ?? null,
           startDate: input.startDate ?? null,
-          finishDate: input.finishDate ?? null,
+          completedAt: deriveCompletedAt(
+            task,
+            input.status ?? task.status,
+            now,
+          ),
           updatedAt: now,
         };
 
@@ -217,6 +238,48 @@ export class RaylogRepository {
   }
 
   async completeTask(taskId: string): Promise<TaskRecord> {
+    return this.updateTaskStatus(taskId, "done");
+  }
+
+  async startTask(taskId: string): Promise<TaskRecord> {
+    return this.updateTaskStatus(taskId, "in_progress");
+  }
+
+  async reopenTask(taskId: string): Promise<TaskRecord> {
+    return this.updateTaskStatus(taskId, "open");
+  }
+
+  async archiveTask(taskId: string): Promise<TaskRecord> {
+    return this.updateTaskStatus(taskId, "archived");
+  }
+
+  async deleteTask(taskId: string): Promise<void> {
+    let didDelete = false;
+
+    await this.updateDocument((document) => {
+      const tasks = document.tasks.filter((task) => {
+        if (task.id !== taskId) {
+          return true;
+        }
+
+        didDelete = true;
+        return false;
+      });
+
+      if (!didDelete) {
+        throw new RaylogTaskNotFoundError(
+          "The selected task could not be found.",
+        );
+      }
+
+      return { ...document, tasks };
+    });
+  }
+
+  private async updateTaskStatus(
+    taskId: string,
+    status: TaskStatus,
+  ): Promise<TaskRecord> {
     let completedTask: TaskRecord | undefined;
     const now = new Date().toISOString();
 
@@ -228,8 +291,8 @@ export class RaylogRepository {
 
         completedTask = {
           ...task,
-          completed: true,
-          finishDate: task.finishDate ?? now,
+          status,
+          completedAt: deriveCompletedAt(task, status, now),
           updatedAt: now,
         };
 
@@ -287,10 +350,10 @@ function normalizeTaskRecord(task: unknown): TaskRecord {
     id: requireString(candidate.id, "Task id"),
     header: requireString(candidate.header, "Task header"),
     body: typeof candidate.body === "string" ? candidate.body : "",
+    status: normalizeTaskStatus(candidate.status),
     dueDate: normalizeNullableString(candidate.dueDate),
     startDate: normalizeNullableString(candidate.startDate),
-    finishDate: normalizeNullableString(candidate.finishDate),
-    completed: Boolean(candidate.completed),
+    completedAt: normalizeNullableString(candidate.completedAt),
     createdAt: requireString(candidate.createdAt, "Task createdAt"),
     updatedAt: requireString(candidate.updatedAt, "Task updatedAt"),
   };
@@ -308,6 +371,35 @@ function requireString(value: unknown, label: string): string {
 
 function normalizeNullableString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function normalizeTaskStatus(value: unknown): TaskStatus {
+  if (
+    value === "open" ||
+    value === "in_progress" ||
+    value === "done" ||
+    value === "archived"
+  ) {
+    return value;
+  }
+
+  throw new Error("Task status is invalid.");
+}
+
+function deriveCompletedAt(
+  task: TaskRecord,
+  status: TaskStatus,
+  now: string,
+): string | null {
+  if (status === "done") {
+    return task.completedAt ?? now;
+  }
+
+  if (status === "archived") {
+    return task.completedAt;
+  }
+
+  return null;
 }
 
 function escapeForRegExp(value: string): string {

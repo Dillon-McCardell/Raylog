@@ -11,14 +11,15 @@ import {
 import { useForm } from "@raycast/utils";
 import { toCanonicalDateString, fromCanonicalDateString } from "../lib/date";
 import { RaylogRepository } from "../lib/storage";
-import type { TaskRecord } from "../lib/types";
+import { getTaskStatusLabel, validateTaskInput } from "../lib/tasks";
+import type { TaskRecord, TaskStatus } from "../lib/types";
 
 interface TaskFormValues {
   header: string;
   body?: string;
+  status: TaskStatus;
   dueDate?: Date | null;
   startDate?: Date | null;
-  finishDate?: Date | null;
 }
 
 interface TaskFormProps {
@@ -36,9 +37,9 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
     initialValues: {
       header: task?.header ?? "",
       body: task?.body ?? "",
+      status: task?.status ?? "open",
       dueDate: fromCanonicalDateString(task?.dueDate),
       startDate: fromCanonicalDateString(task?.startDate),
-      finishDate: fromCanonicalDateString(task?.finishDate),
     },
     validation: {
       header: (value) => {
@@ -51,30 +52,48 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
       const payload = {
         header: values.header,
         body: values.body ?? "",
+        status: values.status,
         dueDate: toCanonicalDateString(values.dueDate),
         startDate: toCanonicalDateString(values.startDate),
-        finishDate: toCanonicalDateString(values.finishDate),
       };
 
-      if (task) {
-        await repository.updateTask(task.id, payload);
-      } else {
-        await repository.createTask(payload);
-      }
-
-      await showToast({
-        style: Toast.Style.Success,
-        title: isEditing ? "Task updated" : "Task created",
-      });
-
-      if (onDidSave) {
-        await onDidSave();
-      }
-
       try {
-        pop();
-      } catch {
-        await popToRoot({ clearSearchBar: true });
+        const validationMessage = validateTaskInput(payload);
+        if (validationMessage) {
+          await showToast({
+            style: Toast.Style.Failure,
+            title: "Unable to save task",
+            message: validationMessage,
+          });
+          return;
+        }
+
+        if (task) {
+          await repository.updateTask(task.id, payload);
+        } else {
+          await repository.createTask(payload);
+        }
+
+        await showToast({
+          style: Toast.Style.Success,
+          title: isEditing ? "Task updated" : "Task created",
+        });
+
+        if (onDidSave) {
+          await onDidSave();
+        }
+
+        try {
+          pop();
+        } catch {
+          await popToRoot({ clearSearchBar: true });
+        }
+      } catch (error) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: isEditing ? "Unable to update task" : "Unable to create task",
+          message: error instanceof Error ? error.message : undefined,
+        });
       }
     },
   });
@@ -102,9 +121,26 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
         placeholder="Optional markdown body"
         {...itemProps.body}
       />
+      <Form.Dropdown
+        id={itemProps.status.id}
+        title="Status"
+        value={itemProps.status.value}
+        onChange={(value) => itemProps.status.onChange?.(value as TaskStatus)}
+        error={itemProps.status.error}
+      >
+        <Form.Dropdown.Item value="open" title={getTaskStatusLabel("open")} />
+        <Form.Dropdown.Item
+          value="in_progress"
+          title={getTaskStatusLabel("in_progress")}
+        />
+        <Form.Dropdown.Item value="done" title={getTaskStatusLabel("done")} />
+        <Form.Dropdown.Item
+          value="archived"
+          title={getTaskStatusLabel("archived")}
+        />
+      </Form.Dropdown>
       <Form.DatePicker title="Due Date" {...itemProps.dueDate} />
       <Form.DatePicker title="Start Date" {...itemProps.startDate} />
-      <Form.DatePicker title="Finish Date" {...itemProps.finishDate} />
     </Form>
   );
 }

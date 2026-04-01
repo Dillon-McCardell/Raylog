@@ -1,17 +1,27 @@
 import {
   Action,
   ActionPanel,
+  Alert,
   Icon,
   List,
   Toast,
+  confirmAlert,
+  environment,
   openExtensionPreferences,
   showToast,
 } from "@raycast/api";
+import path from "path";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { formatTaskDate } from "../lib/date";
+import { getDueSoonDays, getEnabledListMetadata } from "../lib/config";
 import { RaylogRepository } from "../lib/storage";
-import type { TaskRecord } from "../lib/types";
+import {
+  filterTasks,
+  getTaskFilterLabel,
+  getTaskListIndicators,
+  getTaskStatusLabel,
+} from "../lib/tasks";
+import type { TaskRecord, TaskStatus } from "../lib/types";
 import TaskForm from "./TaskForm";
 
 interface TaskListScreenProps {
@@ -20,14 +30,26 @@ interface TaskListScreenProps {
 
 export default function TaskListScreen({ notePath }: TaskListScreenProps) {
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
+  const dueSoonDays = getDueSoonDays();
+  const enabledListMetadata = getEnabledListMetadata();
   const [isLoading, setIsLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [searchText, setSearchText] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState<
+    "all" | "open" | "in_progress" | "due_soon" | "done" | "archived"
+  >("all");
+  const [loadError, setLoadError] = useState<string>();
 
   const loadTasks = useCallback(async () => {
     setIsLoading(true);
     try {
       setTasks(await repository.listTasks());
+      setLoadError(undefined);
+    } catch (error) {
+      setTasks([]);
+      setLoadError(
+        error instanceof Error ? error.message : "Unable to load tasks.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -37,23 +59,12 @@ export default function TaskListScreen({ notePath }: TaskListScreenProps) {
     loadTasks();
   }, [loadTasks]);
 
-  const filteredTasks = useMemo(() => {
-    const normalizedSearch = searchText.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return tasks;
-    }
-
-    return tasks.filter((task) => {
-      return (
-        task.header.toLowerCase().includes(normalizedSearch) ||
-        task.body.toLowerCase().includes(normalizedSearch)
-      );
-    });
-  }, [searchText, tasks]);
-
-  const openTasks = filteredTasks.filter((task) => !task.completed);
-  const completedTasks = filteredTasks.filter((task) => task.completed);
+  const filteredTasks = useMemo(
+    () => filterTasks(tasks, selectedFilter, searchText, dueSoonDays),
+    [dueSoonDays, searchText, selectedFilter, tasks],
+  );
+  const hasAnyTasks = tasks.length > 0;
+  const hasSearchOrFilter = searchText.trim().length > 0 || hasAnyTasks;
 
   return (
     <List
@@ -63,84 +74,215 @@ export default function TaskListScreen({ notePath }: TaskListScreenProps) {
       searchBarPlaceholder="Search tasks by header or body"
       onSearchTextChange={setSearchText}
       filtering={false}
+      searchBarAccessory={
+        <List.Dropdown
+          tooltip="Task View"
+          value={selectedFilter}
+          onChange={(value) =>
+            setSelectedFilter(value as typeof selectedFilter)
+          }
+        >
+          <List.Dropdown.Item value="all" title={getTaskFilterLabel("all")} />
+          <List.Dropdown.Item value="open" title={getTaskFilterLabel("open")} />
+          <List.Dropdown.Item
+            value="in_progress"
+            title={getTaskFilterLabel("in_progress")}
+          />
+          <List.Dropdown.Item
+            value="due_soon"
+            title={getTaskFilterLabel("due_soon")}
+          />
+          <List.Dropdown.Item value="done" title={getTaskFilterLabel("done")} />
+          <List.Dropdown.Item
+            value="archived"
+            title={getTaskFilterLabel("archived")}
+          />
+        </List.Dropdown>
+      }
     >
       {filteredTasks.length === 0 ? (
         <List.EmptyView
-          title="No tasks yet"
-          description="Create a task or update the storage note in Raycast Settings."
+          title={
+            loadError
+              ? "Unable to load tasks"
+              : hasAnyTasks
+                ? "No tasks in this view"
+                : "No tasks yet"
+          }
+          description={
+            loadError ??
+            (hasSearchOrFilter
+              ? "Try another view or search, or create a new task."
+              : "Create your first task or update the storage note in Raycast Settings.")
+          }
           actions={
             <ActionPanel>
-              <Action.Push
-                title="Add Task"
-                icon={Icon.Plus}
-                target={<TaskForm notePath={notePath} onDidSave={loadTasks} />}
-              />
-              <Action
-                title="Open Extension Preferences"
-                icon={Icon.Gear}
-                onAction={openExtensionPreferences}
-              />
+              <TaskFilterActions onSelectFilter={setSelectedFilter} />
+              <ActionPanel.Section>
+                <Action.Push
+                  title="Add Task"
+                  icon={Icon.Plus}
+                  target={
+                    <TaskForm notePath={notePath} onDidSave={loadTasks} />
+                  }
+                  shortcut={{ modifiers: ["cmd"], key: "n" }}
+                />
+                <Action
+                  title="Reload Tasks"
+                  icon={Icon.ArrowClockwise}
+                  onAction={loadTasks}
+                />
+              </ActionPanel.Section>
+              <ActionPanel.Section>
+                <Action
+                  title="Open Extension Preferences"
+                  icon={Icon.Gear}
+                  onAction={openExtensionPreferences}
+                />
+              </ActionPanel.Section>
             </ActionPanel>
           }
         />
       ) : (
-        <>
-          {openTasks.length > 0 && (
-            <List.Section title="Open Tasks">
-              {openTasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  notePath={notePath}
-                  task={task}
-                  onReload={loadTasks}
-                />
-              ))}
-            </List.Section>
-          )}
-          {completedTasks.length > 0 && (
-            <List.Section title="Completed Tasks">
-              {completedTasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  notePath={notePath}
-                  task={task}
-                  onReload={loadTasks}
-                />
-              ))}
-            </List.Section>
-          )}
-        </>
+        filteredTasks.map((task) => (
+          <TaskItem
+            key={task.id}
+            enabledListMetadata={enabledListMetadata}
+            notePath={notePath}
+            onSelectFilter={setSelectedFilter}
+            task={task}
+            onReload={loadTasks}
+          />
+        ))
       )}
     </List>
   );
 }
 
 interface TaskItemProps {
+  enabledListMetadata: {
+    dueDate: boolean;
+    startDate: boolean;
+  };
   notePath: string;
+  onSelectFilter: (
+    filter: "all" | "open" | "in_progress" | "due_soon" | "done" | "archived",
+  ) => void;
   task: TaskRecord;
   onReload: () => Promise<void>;
 }
 
-function TaskItem({ notePath, task, onReload }: TaskItemProps) {
-  const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
+function TaskFilterActions({
+  onSelectFilter,
+}: {
+  onSelectFilter: (
+    filter: "all" | "open" | "in_progress" | "due_soon" | "done" | "archived",
+  ) => void;
+}) {
+  return (
+    <ActionPanel.Section>
+      <Action
+        title="Show All Tasks"
+        icon={Icon.List}
+        onAction={() => onSelectFilter("all")}
+        shortcut={{ modifiers: ["cmd"], key: "1" }}
+      />
+      <Action
+        title="Show Open Tasks"
+        icon={Icon.Circle}
+        onAction={() => onSelectFilter("open")}
+        shortcut={{ modifiers: ["cmd"], key: "2" }}
+      />
+      <Action
+        title="Show in Progress"
+        icon={Icon.Play}
+        onAction={() => onSelectFilter("in_progress")}
+        shortcut={{ modifiers: ["cmd"], key: "3" }}
+      />
+      <Action
+        title="Show Due Soon Tasks"
+        icon={Icon.Alarm}
+        onAction={() => onSelectFilter("due_soon")}
+        shortcut={{ modifiers: ["cmd"], key: "4" }}
+      />
+      <Action
+        title="Show Done Tasks"
+        icon={Icon.CheckCircle}
+        onAction={() => onSelectFilter("done")}
+        shortcut={{ modifiers: ["cmd"], key: "5" }}
+      />
+      <Action
+        title="Show Archived Tasks"
+        icon={Icon.Box}
+        onAction={() => onSelectFilter("archived")}
+        shortcut={{ modifiers: ["cmd"], key: "6" }}
+      />
+    </ActionPanel.Section>
+  );
+}
 
-  const handleComplete = useCallback(async () => {
-    await repository.completeTask(task.id);
-    await showToast({
-      style: Toast.Style.Success,
-      title: "Task completed",
+function TaskItem({
+  enabledListMetadata,
+  notePath,
+  onSelectFilter,
+  task,
+  onReload,
+}: TaskItemProps) {
+  const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
+  const indicators = getTaskListIndicators(task, enabledListMetadata);
+
+  const runTaskAction = useCallback(
+    async (title: string, action: () => Promise<unknown>) => {
+      try {
+        await action();
+        await showToast({
+          style: Toast.Style.Success,
+          title,
+        });
+        await onReload();
+      } catch (error) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: `Unable to ${title.toLowerCase()}`,
+          message: error instanceof Error ? error.message : undefined,
+        });
+      }
+    },
+    [onReload],
+  );
+
+  const handleDelete = useCallback(async () => {
+    const confirmed = await confirmAlert({
+      title: "Delete task?",
+      message: "This permanently removes the task from the storage note.",
+      primaryAction: {
+        title: "Delete Task",
+        style: Alert.ActionStyle.Destructive,
+      },
     });
-    await onReload();
-  }, [onReload, repository, task.id]);
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runTaskAction("Task deleted", async () => {
+      await repository.deleteTask(task.id);
+    });
+  }, [repository, runTaskAction, task.id]);
 
   return (
     <List.Item
-      icon={task.completed ? Icon.CheckCircle : Icon.Circle}
+      icon={getTaskIcon(task.status)}
       title={task.header}
-      accessories={[
-        task.dueDate ? { tag: `Due ${formatTaskDate(task.dueDate)}` } : {},
-        { text: `${formatDistanceToNowStrict(new Date(task.updatedAt))} ago` },
-      ]}
+      accessories={
+        indicators.length > 0
+          ? indicators.map((indicator) => ({
+              icon: getIndicatorIcon(indicator.color),
+              text: indicator.text,
+              tooltip: indicator.tooltip,
+            }))
+          : undefined
+      }
       detail={
         <List.Item.Detail
           markdown={buildTaskDetailMarkdown(task)}
@@ -148,7 +290,7 @@ function TaskItem({ notePath, task, onReload }: TaskItemProps) {
             <List.Item.Detail.Metadata>
               <List.Item.Detail.Metadata.Label
                 title="Status"
-                text={task.completed ? "Completed" : "Open"}
+                text={getTaskStatusLabel(task.status)}
               />
               <List.Item.Detail.Metadata.Label
                 title="Header"
@@ -163,8 +305,8 @@ function TaskItem({ notePath, task, onReload }: TaskItemProps) {
                 text={formatTaskDate(task.startDate)}
               />
               <List.Item.Detail.Metadata.Label
-                title="Finish Date"
-                text={formatTaskDate(task.finishDate)}
+                title="Completed"
+                text={formatTaskDate(task.completedAt)}
               />
               <List.Item.Detail.Metadata.Separator />
               <List.Item.Detail.Metadata.Label
@@ -181,10 +323,12 @@ function TaskItem({ notePath, task, onReload }: TaskItemProps) {
       }
       actions={
         <ActionPanel>
+          <TaskFilterActions onSelectFilter={onSelectFilter} />
           <ActionPanel.Section>
             <Action.Push
               title="Edit Task"
               icon={Icon.Pencil}
+              shortcut={{ modifiers: ["cmd"], key: "e" }}
               target={
                 <TaskForm
                   notePath={notePath}
@@ -195,14 +339,61 @@ function TaskItem({ notePath, task, onReload }: TaskItemProps) {
                 />
               }
             />
-            {!task.completed && (
+            {task.status === "open" && (
+              <Action
+                title="Start Task"
+                icon={Icon.Play}
+                onAction={() =>
+                  runTaskAction("Task started", async () => {
+                    await repository.startTask(task.id);
+                  })
+                }
+                shortcut={{ modifiers: ["cmd"], key: "s" }}
+              />
+            )}
+            {(task.status === "open" || task.status === "in_progress") && (
               <Action
                 title="Complete Task"
                 icon={Icon.CheckCircle}
-                onAction={handleComplete}
+                onAction={() =>
+                  runTaskAction("Task completed", async () => {
+                    await repository.completeTask(task.id);
+                  })
+                }
                 shortcut={{ modifiers: ["cmd"], key: "enter" }}
               />
             )}
+            {task.status !== "open" && (
+              <Action
+                title="Reopen Task"
+                icon={Icon.ArrowCounterClockwise}
+                onAction={() =>
+                  runTaskAction("Task reopened", async () => {
+                    await repository.reopenTask(task.id);
+                  })
+                }
+                shortcut={{ modifiers: ["cmd"], key: "r" }}
+              />
+            )}
+            {task.status !== "archived" && (
+              <Action
+                title="Archive Task"
+                icon={Icon.Box}
+                onAction={() =>
+                  runTaskAction("Task archived", async () => {
+                    await repository.archiveTask(task.id);
+                  })
+                }
+                shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+              />
+            )}
+            <Action
+              title="Delete Task"
+              icon={Icon.Trash}
+              style={Action.Style.Destructive}
+              onAction={handleDelete}
+              shortcut={{ modifiers: ["ctrl"], key: "x" }}
+            />
             <Action.Push
               title="Add Task"
               icon={Icon.Plus}
@@ -231,4 +422,24 @@ function buildTaskDetailMarkdown(task: TaskRecord): string {
 
 function escapeMarkdown(value: string): string {
   return value.replace(/([\\`*_{}[\]()#+\-.!|>])/g, "\\$1");
+}
+
+function getTaskIcon(status: TaskStatus): Icon {
+  switch (status) {
+    case "open":
+      return Icon.Circle;
+    case "in_progress":
+      return Icon.Play;
+    case "done":
+      return Icon.CheckCircle;
+    case "archived":
+      return Icon.Box;
+  }
+}
+
+function getIndicatorIcon(color: "red" | "blue"): string {
+  return path.join(
+    environment.assetsPath,
+    color === "red" ? "due-indicator.svg" : "start-indicator.svg",
+  );
 }

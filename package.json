@@ -2,7 +2,7 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "raylog",
   "title": "Raylog",
-  "description": "Manage local markdown-backed tasks from Raycast.",
+  "description": "Manage focused local tasks from Raycast with a standalone markdown note.",
   "icon": "icon.png",
   "author": "dillon-mccardell",
   "categories": [
@@ -22,13 +22,43 @@
     {
       "name": "list-tasks",
       "title": "List Tasks",
-      "description": "Browse, search, edit, and complete Raylog tasks.",
-      "mode": "view"
+      "description": "Focus, filter, and move Raylog tasks through their lifecycle.",
+      "mode": "view",
+      "preferences": [
+        {
+          "name": "showDueDateIndicator",
+          "type": "checkbox",
+          "required": false,
+          "default": true,
+          "title": "Show Due Countdown",
+          "description": "Show the due date countdown in the task list.",
+          "label": "Show Due Countdown"
+        },
+        {
+          "name": "showStartDateIndicator",
+          "type": "checkbox",
+          "required": false,
+          "default": true,
+          "title": "Show Start Countdown",
+          "description": "Show the start date countdown in the task list.",
+          "label": "Show Start Countdown"
+        },
+        {
+          "name": "dueSoonDays",
+          "type": "textfield",
+          "required": false,
+          "default": "7",
+          "title": "Due Soon Days",
+          "description": "How many days ahead should count as due soon in List Tasks.",
+          "placeholder": "7",
+          "label": "Due Soon Days"
+        }
+      ]
     },
     {
       "name": "add-task",
       "title": "Add Task",
-      "description": "Create a new Raylog task.",
+      "description": "Capture a new Raylog task with dates and status.",
       "mode": "view"
     }
   ],

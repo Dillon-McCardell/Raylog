@@ -1,11 +1,13 @@
+export type TaskStatus = "open" | "in_progress" | "done" | "archived";
+
 export interface TaskRecord {
   id: string;
   header: string;
   body: string;
+  status: TaskStatus;
   dueDate: string | null;
   startDate: string | null;
-  finishDate: string | null;
-  completed: boolean;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,7 +20,7 @@ export interface RaylogDocument {
 export interface TaskInput {
   header: string;
   body?: string;
+  status?: TaskStatus;
   dueDate?: string | null;
   startDate?: string | null;
-  finishDate?: string | null;
 }
