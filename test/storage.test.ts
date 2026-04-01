@@ -39,11 +39,16 @@ test("parses a valid v2 markdown note with a Raylog block", () => {
         updatedAt: "2026-03-31T00:00:00.000Z",
       },
     ],
+    viewState: {
+      hasSelectedListTasksFilter: true,
+      listTasksFilter: "done",
+    },
   });
 
   const parsed = parseRaylogMarkdown(markdown);
   assert.equal(parsed.hasManagedBlock, true);
   assert.equal(parsed.document.tasks[0].status, "open");
+  assert.equal(parsed.document.viewState.listTasksFilter, "done");
 });
 
 test("throws on invalid JSON inside the Raylog block", () => {
@@ -60,6 +65,10 @@ test("throws on an outdated schema", () => {
   const markdown = mergeRaylogMarkdown("", {
     schemaVersion: 1,
     tasks: [],
+    viewState: {
+      hasSelectedListTasksFilter: false,
+      listTasksFilter: "all",
+    },
   });
 
   assert.throws(() => parseRaylogMarkdown(markdown), RaylogSchemaError);
@@ -136,6 +145,38 @@ test("throws when mutating a missing task", async () => {
 
   await assert.rejects(() => repository.completeTask("missing"));
   await assert.rejects(() => repository.deleteTask("missing"));
+});
+
+test("persists the selected list filter in the storage document", async () => {
+  const notePath = await createTempMarkdownFile("");
+  const repository = new RaylogRepository(notePath);
+
+  await repository.setListTasksFilter("archived");
+
+  assert.equal(await repository.getListTasksFilter(), "archived");
+  const markdown = await fs.promises.readFile(notePath, "utf8");
+  assert.match(markdown, /"hasSelectedListTasksFilter": true/);
+  assert.match(markdown, /"listTasksFilter": "archived"/);
+});
+
+test("defaults to all for legacy view state until a filter is explicitly selected", async () => {
+  const notePath = await createTempMarkdownFile(
+    `<!-- raylog:start -->
+\`\`\`json
+{
+  "schemaVersion": 2,
+  "tasks": [],
+  "viewState": {
+    "listTasksFilter": "open"
+  }
+}
+\`\`\`
+<!-- raylog:end -->
+`,
+  );
+  const repository = new RaylogRepository(notePath);
+
+  assert.equal(await repository.getListTasksFilter(), "all");
 });
 
 async function createTempMarkdownFile(contents: string): Promise<string> {

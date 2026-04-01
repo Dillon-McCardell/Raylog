@@ -21,7 +21,7 @@ import {
   getTaskListIndicators,
   getTaskStatusLabel,
 } from "../lib/tasks";
-import type { TaskRecord, TaskStatus } from "../lib/types";
+import type { TaskRecord, TaskStatus, TaskViewFilter } from "../lib/types";
 import TaskForm from "./TaskForm";
 
 interface TaskListScreenProps {
@@ -35,15 +35,23 @@ export default function TaskListScreen({ notePath }: TaskListScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<
-    "all" | "open" | "in_progress" | "due_soon" | "done" | "archived"
-  >("all");
+  const [selectedFilter, setSelectedFilter] = useState<TaskViewFilter>("all");
   const [loadError, setLoadError] = useState<string>();
 
   const loadTasks = useCallback(async () => {
+    const nextTasks = await repository.listTasks();
+    setTasks(nextTasks);
+  }, [repository]);
+
+  const loadInitialState = useCallback(async () => {
     setIsLoading(true);
     try {
-      setTasks(await repository.listTasks());
+      const [nextTasks, nextFilter] = await Promise.all([
+        repository.listTasks(),
+        repository.getListTasksFilter(),
+      ]);
+      setTasks(nextTasks);
+      setSelectedFilter(nextFilter);
       setLoadError(undefined);
     } catch (error) {
       setTasks([]);
@@ -56,8 +64,25 @@ export default function TaskListScreen({ notePath }: TaskListScreenProps) {
   }, [repository]);
 
   useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+    void loadInitialState();
+  }, [loadInitialState]);
+
+  const handleSelectFilter = useCallback(
+    async (filter: TaskViewFilter) => {
+      setSelectedFilter(filter);
+
+      try {
+        await repository.setListTasksFilter(filter);
+      } catch (error) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Unable to save task view",
+          message: error instanceof Error ? error.message : undefined,
+        });
+      }
+    },
+    [repository],
+  );
 
   const filteredTasks = useMemo(
     () => filterTasks(tasks, selectedFilter, searchText, dueSoonDays),
@@ -78,9 +103,7 @@ export default function TaskListScreen({ notePath }: TaskListScreenProps) {
         <List.Dropdown
           tooltip="Task View"
           value={selectedFilter}
-          onChange={(value) =>
-            setSelectedFilter(value as typeof selectedFilter)
-          }
+          onChange={(value) => void handleSelectFilter(value as TaskViewFilter)}
         >
           <List.Dropdown.Item value="all" title={getTaskFilterLabel("all")} />
           <List.Dropdown.Item value="open" title={getTaskFilterLabel("open")} />
@@ -118,6 +141,7 @@ export default function TaskListScreen({ notePath }: TaskListScreenProps) {
           actions={
             <ActionPanel>
               <TaskFilterActions onSelectFilter={setSelectedFilter} />
+
               <ActionPanel.Section>
                 <Action.Push
                   title="Add Task"
@@ -149,7 +173,7 @@ export default function TaskListScreen({ notePath }: TaskListScreenProps) {
             key={task.id}
             enabledListMetadata={enabledListMetadata}
             notePath={notePath}
-            onSelectFilter={setSelectedFilter}
+            onSelectFilter={handleSelectFilter}
             task={task}
             onReload={loadTasks}
           />
@@ -165,9 +189,7 @@ interface TaskItemProps {
     startDate: boolean;
   };
   notePath: string;
-  onSelectFilter: (
-    filter: "all" | "open" | "in_progress" | "due_soon" | "done" | "archived",
-  ) => void;
+  onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void;
   task: TaskRecord;
   onReload: () => Promise<void>;
 }
@@ -175,46 +197,44 @@ interface TaskItemProps {
 function TaskFilterActions({
   onSelectFilter,
 }: {
-  onSelectFilter: (
-    filter: "all" | "open" | "in_progress" | "due_soon" | "done" | "archived",
-  ) => void;
+  onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void;
 }) {
   return (
     <ActionPanel.Section>
       <Action
         title="Show All Tasks"
         icon={Icon.List}
-        onAction={() => onSelectFilter("all")}
+        onAction={() => void onSelectFilter("all")}
         shortcut={{ modifiers: ["cmd"], key: "1" }}
       />
       <Action
         title="Show Open Tasks"
         icon={Icon.Circle}
-        onAction={() => onSelectFilter("open")}
+        onAction={() => void onSelectFilter("open")}
         shortcut={{ modifiers: ["cmd"], key: "2" }}
       />
       <Action
         title="Show in Progress"
         icon={Icon.Play}
-        onAction={() => onSelectFilter("in_progress")}
+        onAction={() => void onSelectFilter("in_progress")}
         shortcut={{ modifiers: ["cmd"], key: "3" }}
       />
       <Action
         title="Show Due Soon Tasks"
         icon={Icon.Alarm}
-        onAction={() => onSelectFilter("due_soon")}
+        onAction={() => void onSelectFilter("due_soon")}
         shortcut={{ modifiers: ["cmd"], key: "4" }}
       />
       <Action
         title="Show Done Tasks"
         icon={Icon.CheckCircle}
-        onAction={() => onSelectFilter("done")}
+        onAction={() => void onSelectFilter("done")}
         shortcut={{ modifiers: ["cmd"], key: "5" }}
       />
       <Action
         title="Show Archived Tasks"
         icon={Icon.Box}
-        onAction={() => onSelectFilter("archived")}
+        onAction={() => void onSelectFilter("archived")}
         shortcut={{ modifiers: ["cmd"], key: "6" }}
       />
     </ActionPanel.Section>

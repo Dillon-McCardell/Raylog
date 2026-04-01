@@ -1,5 +1,10 @@
 import { differenceInCalendarDays } from "date-fns";
-import type { TaskInput, TaskRecord, TaskStatus } from "./types";
+import type {
+  TaskInput,
+  TaskRecord,
+  TaskStatus,
+  TaskViewFilter,
+} from "./types";
 
 export type TaskListIndicatorColor = "red" | "blue";
 
@@ -7,14 +12,6 @@ export interface EnabledListMetadata {
   dueDate: boolean;
   startDate: boolean;
 }
-
-export type TaskViewFilter =
-  | "all"
-  | "open"
-  | "in_progress"
-  | "due_soon"
-  | "done"
-  | "archived";
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   open: "Open",
@@ -45,6 +42,17 @@ export function getTaskStatusLabel(status: TaskStatus): string {
 
 export function getTaskFilterLabel(filter: TaskViewFilter): string {
   return TASK_FILTER_LABELS[filter];
+}
+
+export function isTaskViewFilter(value: unknown): value is TaskViewFilter {
+  return (
+    value === "all" ||
+    value === "open" ||
+    value === "in_progress" ||
+    value === "due_soon" ||
+    value === "done" ||
+    value === "archived"
+  );
 }
 
 export function sortTasks(tasks: TaskRecord[]): TaskRecord[] {

@@ -11,7 +11,9 @@ import type {
   TaskInput,
   TaskRecord,
   TaskStatus,
+  TaskViewFilter,
 } from "./types";
+import { isTaskViewFilter } from "./tasks";
 
 export class RaylogStorageError extends Error {}
 export class RaylogConfigurationError extends RaylogStorageError {}
@@ -28,6 +30,10 @@ export function createEmptyDocument(): RaylogDocument {
   return {
     schemaVersion: RAYLOG_SCHEMA_VERSION,
     tasks: [],
+    viewState: {
+      hasSelectedListTasksFilter: false,
+      listTasksFilter: "all",
+    },
   };
 }
 
@@ -68,6 +74,7 @@ export function parseRaylogMarkdown(markdown: string): {
       document: {
         schemaVersion: parsed.schemaVersion,
         tasks: parsed.tasks.map(normalizeTaskRecord),
+        viewState: normalizeViewState(parsed.viewState),
       },
       hasManagedBlock: true,
     };
@@ -159,6 +166,24 @@ export class RaylogRepository {
 
   async listTasks(): Promise<TaskRecord[]> {
     return (await this.readDocument()).tasks;
+  }
+
+  async getListTasksFilter(): Promise<TaskViewFilter> {
+    const { viewState } = await this.readDocument();
+    return viewState.hasSelectedListTasksFilter
+      ? viewState.listTasksFilter
+      : "all";
+  }
+
+  async setListTasksFilter(filter: TaskViewFilter): Promise<void> {
+    await this.updateDocument((document) => ({
+      ...document,
+      viewState: {
+        ...document.viewState,
+        hasSelectedListTasksFilter: true,
+        listTasksFilter: filter,
+      },
+    }));
   }
 
   async getTask(taskId: string): Promise<TaskRecord> {
@@ -359,6 +384,23 @@ function normalizeTaskRecord(task: unknown): TaskRecord {
   };
 
   return normalized;
+}
+
+function normalizeViewState(value: unknown): RaylogDocument["viewState"] {
+  if (typeof value !== "object" || value === null) {
+    return createEmptyDocument().viewState;
+  }
+
+  const candidate = value as Partial<RaylogDocument["viewState"]>;
+  return {
+    hasSelectedListTasksFilter:
+      typeof candidate.hasSelectedListTasksFilter === "boolean"
+        ? candidate.hasSelectedListTasksFilter
+        : false,
+    listTasksFilter: isTaskViewFilter(candidate.listTasksFilter)
+      ? candidate.listTasksFilter
+      : "all",
+  };
 }
 
 function requireString(value: unknown, label: string): string {
