@@ -1,14 +1,17 @@
 import {
   Action,
   ActionPanel,
-  Detail,
+  Color,
   Icon,
+  List,
   Toast,
   openExtensionPreferences,
   showToast,
 } from "@raycast/api";
+import fs from "fs";
 import { ReactNode, useEffect, useState } from "react";
 import { getConfiguredStorageNotePath } from "../lib/config";
+import { RAYLOG_SCHEMA_VERSION } from "../lib/constants";
 import {
   ensureStorageNote,
   RaylogParseError,
@@ -27,6 +30,10 @@ export default function ConfiguredCommand({
   const [notePath, setNotePath] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [canReset, setCanReset] = useState(false);
+  const [isSchemaError, setIsSchemaError] = useState(false);
+  const [currentSchemaVersion, setCurrentSchemaVersion] = useState<
+    number | undefined
+  >();
 
   useEffect(() => {
     void loadConfiguredNote();
@@ -36,6 +43,8 @@ export default function ConfiguredCommand({
     const configuredNotePath = getConfiguredStorageNotePath();
     setIsLoading(true);
     setCanReset(false);
+    setIsSchemaError(false);
+    setCurrentSchemaVersion(undefined);
 
     if (!configuredNotePath) {
       setNotePath(undefined);
@@ -58,6 +67,12 @@ export default function ConfiguredCommand({
       setCanReset(
         error instanceof RaylogParseError || error instanceof RaylogSchemaError,
       );
+      setIsSchemaError(error instanceof RaylogSchemaError);
+      if (error instanceof RaylogSchemaError) {
+        setCurrentSchemaVersion(
+          await readSchemaVersionFromNote(configuredNotePath),
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -88,35 +103,83 @@ export default function ConfiguredCommand({
   }
 
   if (isLoading) {
-    return <Detail isLoading markdown="Loading Raylog…" />;
+    return <List isLoading />;
   }
 
   if (!notePath) {
     return (
-      <Detail
-        markdown={
-          message ??
-          "Configure a storage note in Raycast Settings to use Raylog."
-        }
-        actions={
-          <ActionPanel>
-            {canReset && (
+      <List>
+        <List.EmptyView
+          icon={
+            isSchemaError
+              ? { source: Icon.Warning, tintColor: Color.Orange }
+              : { source: Icon.Document, tintColor: Color.SecondaryText }
+          }
+          title={
+            isSchemaError
+              ? `Schema v${currentSchemaVersion ?? "?"} -> v${RAYLOG_SCHEMA_VERSION} Required`
+              : "Set Up Raylog Storage"
+          }
+          description={buildEmptyStateDescription({
+            message:
+              message ??
+              "Configure a storage note in Raycast Settings to use Raylog.",
+            isSchemaError,
+            currentSchemaVersion,
+          })}
+          actions={
+            <ActionPanel>
+              {canReset && (
+                <Action
+                  title="Reset Storage Note"
+                  icon={Icon.ArrowClockwise}
+                  onAction={handleResetStorage}
+                />
+              )}
               <Action
-                title="Reset Storage Note"
-                icon={Icon.ArrowClockwise}
-                onAction={handleResetStorage}
+                title="Open Extension Preferences"
+                icon={Icon.Gear}
+                onAction={openExtensionPreferences}
               />
-            )}
-            <Action
-              title="Open Extension Preferences"
-              icon={Icon.Gear}
-              onAction={openExtensionPreferences}
-            />
-          </ActionPanel>
-        }
-      />
+            </ActionPanel>
+          }
+        />
+      </List>
     );
   }
 
   return <>{children(notePath)}</>;
+}
+
+function buildEmptyStateDescription({
+  message,
+  isSchemaError,
+  currentSchemaVersion,
+}: {
+  message: string;
+  isSchemaError: boolean;
+  currentSchemaVersion?: number;
+}): string {
+  if (!isSchemaError) {
+    return message;
+  }
+
+  return `Current Raylog requires data schema v${RAYLOG_SCHEMA_VERSION}, but this note is on v${currentSchemaVersion ?? "?"}. Reset the storage note to continue.`;
+}
+
+async function readSchemaVersionFromNote(
+  notePath: string,
+): Promise<number | undefined> {
+  try {
+    const markdown = await fs.promises.readFile(notePath, "utf8");
+    const match = markdown.match(/"schemaVersion"\s*:\s*(\d+)/);
+    if (!match) {
+      return undefined;
+    }
+
+    const parsed = Number.parseInt(match[1], 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  } catch {
+    return undefined;
+  }
 }

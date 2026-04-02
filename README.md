@@ -8,11 +8,12 @@ one markdown file, but the workflow is built entirely around Raycast.
 
 ## Features
 
-- Status-driven task lifecycle: `Open`, `In Progress`, `Done`, `Archived`
+- Status-driven task lifecycle: `Blocked`, `Open`, `In Progress`, `Done`, `Archived`
 - Filtered list views for focused review instead of one long mixed list
 - Urgency-aware ordering for active work
 - Configurable list metadata for due and start countdown indicators
 - Quick actions for start, complete, reopen, archive, and delete
+- Reciprocal task dependencies with related-task navigation
 - Structured markdown-backed storage with resettable setup
 
 ## Workflow
@@ -21,9 +22,9 @@ one markdown file, but the workflow is built entirely around Raycast.
 
 Use **List Tasks** to manage work from one command.
 
-- Filter by `Inbox / Open`, `In Progress`, `Due Soon`, `Done`, or `Archived`
+- Filter by `Blocked`, `Inbox / Open`, `In Progress`, `Due Soon`, `Done`, or `Archived`
 - Search task headers and bodies within the active view
-- Jump between task views with `Cmd-1` through `Cmd-6`
+- Jump between task views with `Cmd-1` through `Cmd-7`
 - Review task metadata in the detail pane
 - Trigger lifecycle actions without leaving the list
 - Open the form to edit or create tasks
@@ -35,6 +36,7 @@ Use **Add Task** to create a task with:
 - **Header** (required)
 - **Body**
 - **Status**
+- **Dependencies**
 - **Due Date**
 - **Start Date**
 
@@ -46,7 +48,7 @@ Raylog manages a JSON block inside your configured markdown note.
 <!-- raylog:start -->
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tasks": []
 }
 ```
@@ -54,10 +56,11 @@ Raylog manages a JSON block inside your configured markdown note.
 ````
 
 Markdown outside the managed block is preserved. The managed block is intended to
-be written by Raylog, not edited manually.
+be written by Raylog, not edited manually. Each task now stores dependency ids in
+reciprocal `blockedByTaskIds` and `blocksTaskIds` arrays inside the managed JSON.
 
 If the storage block is malformed or from an old schema, Raylog will prompt you
-to reset the note to a fresh v2 document.
+to reset the note to a fresh v3 document.
 
 ## Configuration
 

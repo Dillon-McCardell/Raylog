@@ -1,6 +1,12 @@
-export type TaskStatus = "open" | "in_progress" | "done" | "archived";
+export type TaskStatus =
+  | "blocked"
+  | "open"
+  | "in_progress"
+  | "done"
+  | "archived";
 export type TaskViewFilter =
   | "all"
+  | "blocked"
   | "open"
   | "in_progress"
   | "due_soon"
@@ -17,6 +23,8 @@ export interface TaskRecord {
   header: string;
   body: string;
   status: TaskStatus;
+  blockedByTaskIds: string[];
+  blocksTaskIds: string[];
   dueDate: string | null;
   startDate: string | null;
   completedAt: string | null;
@@ -34,6 +42,8 @@ export interface TaskInput {
   header: string;
   body?: string;
   status?: TaskStatus;
+  blockedByTaskIds?: string[];
+  blocksTaskIds?: string[];
   dueDate?: string | null;
   startDate?: string | null;
 }
