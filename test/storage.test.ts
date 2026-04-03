@@ -13,6 +13,7 @@ import {
   RaylogSchemaError,
   resetStorageNote,
 } from "../src/lib/storage";
+import type { TaskRecord } from "../src/lib/types";
 
 test("bootstraps an empty markdown note", async () => {
   const notePath = await createTempMarkdownFile("");
@@ -20,20 +21,21 @@ test("bootstraps an empty markdown note", async () => {
   const markdown = await fs.promises.readFile(notePath, "utf8");
 
   assert.match(markdown, /raylog:start/);
-  assert.deepEqual(parseRaylogMarkdown(markdown).document, createEmptyDocument());
+  assert.deepEqual(
+    parseRaylogMarkdown(markdown).document,
+    createEmptyDocument(),
+  );
 });
 
-test("parses a valid v3 markdown note with a Raylog block", () => {
+test("parses a valid v4 markdown note with a Raylog block", () => {
   const markdown = mergeRaylogMarkdown("# Notes\n", {
-    schemaVersion: 3,
+    schemaVersion: 4,
     tasks: [
       {
         id: "task-1",
         header: "Header",
         body: "Body",
         status: "open",
-        blockedByTaskIds: ["task-2"],
-        blocksTaskIds: [],
         dueDate: null,
         startDate: null,
         completedAt: null,
@@ -50,7 +52,7 @@ test("parses a valid v3 markdown note with a Raylog block", () => {
   const parsed = parseRaylogMarkdown(markdown);
   assert.equal(parsed.hasManagedBlock, true);
   assert.equal(parsed.document.tasks[0].status, "open");
-  assert.deepEqual(parsed.document.tasks[0].blockedByTaskIds, ["task-2"]);
+  assert.equal(parsed.document.tasks[0].dueDate, null);
   assert.equal(parsed.document.viewState.listTasksFilter, "done");
 });
 
@@ -66,7 +68,7 @@ test("throws on invalid JSON inside the Raylog block", () => {
 
 test("throws on an outdated schema", () => {
   const markdown = mergeRaylogMarkdown("", {
-    schemaVersion: 1,
+    schemaVersion: 3,
     tasks: [],
     viewState: {
       hasSelectedListTasksFilter: false,
@@ -89,7 +91,7 @@ test("initializes a missing block while preserving markdown content", async () =
   assert.match(updatedMarkdown, /raylog:start/);
 });
 
-test("supports the new task lifecycle without clobbering surrounding markdown", async () => {
+test("supports the current task lifecycle without clobbering surrounding markdown", async () => {
   const notePath = await createTempMarkdownFile("# Header\n\nContext above.\n");
   const repository = new RaylogRepository(notePath);
 
@@ -129,7 +131,7 @@ test("supports the new task lifecycle without clobbering surrounding markdown", 
   assert.doesNotMatch(finalMarkdown, /Ship Raylog v2/);
 });
 
-test("resets malformed storage to a fresh v3 document", async () => {
+test("resets malformed storage to a fresh v4 document", async () => {
   const notePath = await createTempMarkdownFile(
     "<!-- raylog:start -->\n```json\n{bad-json}\n```\n<!-- raylog:end -->\n",
   );
@@ -138,7 +140,7 @@ test("resets malformed storage to a fresh v3 document", async () => {
   const markdown = await fs.promises.readFile(notePath, "utf8");
   const parsed = parseRaylogMarkdown(markdown);
 
-  assert.equal(parsed.document.schemaVersion, 3);
+  assert.equal(parsed.document.schemaVersion, 4);
   assert.deepEqual(parsed.document.tasks, []);
 });
 
@@ -167,7 +169,7 @@ test("defaults to all for current view state until a filter is explicitly select
     `<!-- raylog:start -->
 \`\`\`json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "tasks": [],
   "viewState": {
     "listTasksFilter": "open"
@@ -182,80 +184,61 @@ test("defaults to all for current view state until a filter is explicitly select
   assert.equal(await repository.getListTasksFilter(), "all");
 });
 
-test("persists reciprocal blocked-by dependencies", async () => {
-  const notePath = await createTempMarkdownFile("");
-  const repository = new RaylogRepository(notePath);
-  const blocker = await repository.createTask({ header: "Blocker" });
-  const blocked = await repository.createTask({
-    header: "Blocked",
-    blockedByTaskIds: [blocker.id],
+test("rejects v4 documents with blocked tasks", () => {
+  const markdown = mergeRaylogMarkdown("", {
+    schemaVersion: 4,
+    tasks: [
+      {
+        id: "task-1",
+        header: "Header",
+        body: "",
+        status: "blocked",
+        dueDate: null,
+        startDate: null,
+        completedAt: null,
+        createdAt: "2026-03-31T00:00:00.000Z",
+        updatedAt: "2026-03-31T00:00:00.000Z",
+      } as unknown as TaskRecord,
+    ],
+    viewState: {
+      hasSelectedListTasksFilter: false,
+      listTasksFilter: "all",
+    },
   });
 
-  const reloadedBlocker = await repository.getTask(blocker.id);
-  const reloadedBlocked = await repository.getTask(blocked.id);
-
-  assert.deepEqual(reloadedBlocked.blockedByTaskIds, [blocker.id]);
-  assert.deepEqual(reloadedBlocker.blocksTaskIds, [blocked.id]);
+  assert.throws(() => parseRaylogMarkdown(markdown), RaylogParseError);
 });
 
-test("replaces and removes reciprocal dependencies", async () => {
-  const notePath = await createTempMarkdownFile("");
-  const repository = new RaylogRepository(notePath);
-  const blockerA = await repository.createTask({ header: "Blocker A" });
-  const blockerB = await repository.createTask({ header: "Blocker B" });
-  const task = await repository.createTask({
-    header: "Task",
-    blockedByTaskIds: [blockerA.id],
+test("rejects v4 documents with dependency fields", () => {
+  const markdown = mergeRaylogMarkdown("", {
+    schemaVersion: 4,
+    tasks: [
+      {
+        id: "task-1",
+        header: "Header",
+        body: "",
+        status: "open",
+        blockedByTaskIds: ["task-2"],
+        dueDate: null,
+        startDate: null,
+        completedAt: null,
+        createdAt: "2026-03-31T00:00:00.000Z",
+        updatedAt: "2026-03-31T00:00:00.000Z",
+      } as unknown as TaskRecord,
+    ],
+    viewState: {
+      hasSelectedListTasksFilter: false,
+      listTasksFilter: "all",
+    },
   });
 
-  await repository.updateTask(task.id, {
-    header: "Task",
-    blockedByTaskIds: [blockerB.id],
-  });
-
-  assert.deepEqual((await repository.getTask(blockerA.id)).blocksTaskIds, []);
-  assert.deepEqual((await repository.getTask(blockerB.id)).blocksTaskIds, [task.id]);
-
-  await repository.updateTask(task.id, {
-    header: "Task",
-    blockedByTaskIds: [],
-  });
-
-  assert.deepEqual((await repository.getTask(task.id)).blockedByTaskIds, []);
-  assert.deepEqual((await repository.getTask(blockerB.id)).blocksTaskIds, []);
-});
-
-test("cleans up dangling dependency references when deleting a task", async () => {
-  const notePath = await createTempMarkdownFile("");
-  const repository = new RaylogRepository(notePath);
-  const blocker = await repository.createTask({ header: "Blocker" });
-  const task = await repository.createTask({
-    header: "Task",
-    blockedByTaskIds: [blocker.id],
-  });
-
-  await repository.deleteTask(blocker.id);
-
-  assert.deepEqual((await repository.getTask(task.id)).blockedByTaskIds, []);
-});
-
-test("rejects self dependencies", async () => {
-  const notePath = await createTempMarkdownFile("");
-  const repository = new RaylogRepository(notePath);
-  const task = await repository.createTask({ header: "Task" });
-
-  await assert.rejects(
-    () =>
-      repository.updateTask(task.id, {
-        header: "Task",
-        blockedByTaskIds: [task.id],
-      }),
-    /cannot depend on itself/i,
-  );
+  assert.throws(() => parseRaylogMarkdown(markdown), RaylogParseError);
 });
 
 async function createTempMarkdownFile(contents: string): Promise<string> {
-  const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), "raylog-"));
+  const directory = await fs.promises.mkdtemp(
+    path.join(os.tmpdir(), "raylog-"),
+  );
   const notePath = path.join(directory, "tasks.md");
   await fs.promises.writeFile(notePath, contents, "utf8");
   return notePath;

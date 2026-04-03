@@ -14,7 +14,6 @@ export interface EnabledListMetadata {
 }
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  blocked: "Blocked",
   open: "Open",
   in_progress: "In Progress",
   done: "Done",
@@ -23,7 +22,6 @@ const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 
 const TASK_FILTER_LABELS: Record<TaskViewFilter, string> = {
   all: "All",
-  blocked: "Blocked",
   open: "Inbox / Open",
   in_progress: "In Progress",
   due_soon: "Due Soon",
@@ -32,11 +30,10 @@ const TASK_FILTER_LABELS: Record<TaskViewFilter, string> = {
 };
 
 const OPEN_STATUS_PRIORITY: Record<TaskStatus, number> = {
-  blocked: 0,
-  open: 1,
-  in_progress: 2,
-  done: 3,
-  archived: 4,
+  open: 0,
+  in_progress: 1,
+  done: 2,
+  archived: 3,
 };
 
 export function getTaskStatusLabel(status: TaskStatus): string {
@@ -50,7 +47,6 @@ export function getTaskFilterLabel(filter: TaskViewFilter): string {
 export function isTaskViewFilter(value: unknown): value is TaskViewFilter {
   return (
     value === "all" ||
-    value === "blocked" ||
     value === "open" ||
     value === "in_progress" ||
     value === "due_soon" ||
@@ -95,8 +91,6 @@ export function matchesTaskFilter(
   switch (filter) {
     case "all":
       return task.status !== "archived";
-    case "blocked":
-      return task.status === "blocked";
     case "open":
       return task.status === "open";
     case "in_progress":
@@ -116,14 +110,6 @@ export function validateTaskInput(input: TaskInput): string | undefined {
     return "Header is required";
   }
 
-  if (!hasValidDependencyInput(input.blockedByTaskIds)) {
-    return "Blocked By dependencies must use valid task ids";
-  }
-
-  if (!hasValidDependencyInput(input.blocksTaskIds)) {
-    return "Blocks dependencies must use valid task ids";
-  }
-
   const startDate = parseTaskDate(input.startDate);
   const dueDate = parseTaskDate(input.dueDate);
 
@@ -135,7 +121,7 @@ export function validateTaskInput(input: TaskInput): string | undefined {
 }
 
 export function isActiveTaskStatus(status: TaskStatus): boolean {
-  return status === "blocked" || status === "open" || status === "in_progress";
+  return status === "open" || status === "in_progress";
 }
 
 export function getRelativeDueLabel(value?: string | null): string | null {
@@ -292,15 +278,6 @@ function getStartDateIndicator(value?: string | null): {
     text: formatCountdownDays(daysUntilStart),
     tooltip: buildCountdownTooltip("Start", daysUntilStart, startDate),
   };
-}
-
-function hasValidDependencyInput(value: unknown): boolean {
-  return (
-    value === undefined ||
-    (Array.isArray(value) &&
-      value.every((candidate) => typeof candidate === "string") &&
-      new Set(value).size === value.length)
-  );
 }
 
 function formatCountdownDays(days: number): string {

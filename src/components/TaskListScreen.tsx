@@ -99,11 +99,6 @@ export default function TaskListScreen({
     [repository],
   );
 
-  const taskMap = useMemo(
-    () => new Map(tasks.map((task) => [task.id, task])),
-    [tasks],
-  );
-
   const scopedTasks = useMemo(() => {
     if (!taskIds) {
       return tasks;
@@ -152,10 +147,6 @@ export default function TaskListScreen({
             }
           >
             <List.Dropdown.Item value="all" title={getTaskFilterLabel("all")} />
-            <List.Dropdown.Item
-              value="blocked"
-              title={getTaskFilterLabel("blocked")}
-            />
             <List.Dropdown.Item
               value="open"
               title={getTaskFilterLabel("open")}
@@ -234,7 +225,6 @@ export default function TaskListScreen({
             notePath={notePath}
             onSelectFilter={handleSelectFilter}
             task={task}
-            taskMap={taskMap}
             onReload={loadTasks}
             hideFilters={hideFilters}
           />
@@ -252,7 +242,6 @@ interface TaskItemProps {
   notePath: string;
   onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void;
   task: TaskRecord;
-  taskMap: Map<string, TaskRecord>;
   onReload: () => Promise<void>;
   hideFilters: boolean;
 }
@@ -271,40 +260,34 @@ function TaskFilterActions({
         shortcut={{ modifiers: ["cmd"], key: "1" }}
       />
       <Action
-        title="Show Blocked Tasks"
-        icon={Icon.Pause}
-        onAction={() => void onSelectFilter("blocked")}
-        shortcut={{ modifiers: ["cmd"], key: "2" }}
-      />
-      <Action
         title="Show Open Tasks"
         icon={Icon.Circle}
         onAction={() => void onSelectFilter("open")}
-        shortcut={{ modifiers: ["cmd"], key: "3" }}
+        shortcut={{ modifiers: ["cmd"], key: "2" }}
       />
       <Action
         title="Show in Progress"
         icon={Icon.Play}
         onAction={() => void onSelectFilter("in_progress")}
-        shortcut={{ modifiers: ["cmd"], key: "4" }}
+        shortcut={{ modifiers: ["cmd"], key: "3" }}
       />
       <Action
         title="Show Due Soon Tasks"
         icon={Icon.Alarm}
         onAction={() => void onSelectFilter("due_soon")}
-        shortcut={{ modifiers: ["cmd"], key: "5" }}
+        shortcut={{ modifiers: ["cmd"], key: "4" }}
       />
       <Action
         title="Show Done Tasks"
         icon={Icon.CheckCircle}
         onAction={() => void onSelectFilter("done")}
-        shortcut={{ modifiers: ["cmd"], key: "6" }}
+        shortcut={{ modifiers: ["cmd"], key: "5" }}
       />
       <Action
         title="Show Archived Tasks"
         icon={Icon.Box}
         onAction={() => void onSelectFilter("archived")}
-        shortcut={{ modifiers: ["cmd"], key: "7" }}
+        shortcut={{ modifiers: ["cmd"], key: "6" }}
       />
     </ActionPanel.Section>
   );
@@ -315,26 +298,11 @@ function TaskItem({
   notePath,
   onSelectFilter,
   task,
-  taskMap,
   onReload,
   hideFilters,
 }: TaskItemProps) {
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const indicators = getTaskListIndicators(task, enabledListMetadata);
-  const blockedByTasks = useMemo(
-    () =>
-      task.blockedByTaskIds
-        .map((taskId) => taskMap.get(taskId))
-        .filter(Boolean) as TaskRecord[],
-    [task.blockedByTaskIds, taskMap],
-  );
-  const blocksTasks = useMemo(
-    () =>
-      task.blocksTaskIds
-        .map((taskId) => taskMap.get(taskId))
-        .filter(Boolean) as TaskRecord[],
-    [task.blocksTaskIds, taskMap],
-  );
 
   const runTaskAction = useCallback(
     async (title: string, action: () => Promise<unknown>) => {
@@ -394,15 +362,6 @@ function TaskItem({
           metadata={
             <List.Item.Detail.Metadata>
               <List.Item.Detail.Metadata.Label
-                title="Blocked By"
-                text={formatDependencyMetadata(blockedByTasks)}
-              />
-              <List.Item.Detail.Metadata.Label
-                title="Blocks"
-                text={formatDependencyMetadata(blocksTasks)}
-              />
-              <List.Item.Detail.Metadata.Separator />
-              <List.Item.Detail.Metadata.Label
                 title="Created"
                 text={new Date(task.createdAt).toLocaleString()}
               />
@@ -439,18 +398,6 @@ function TaskItem({
                   })
                 }
                 shortcut={{ modifiers: ["cmd"], key: "s" }}
-              />
-            )}
-            {(task.status === "open" || task.status === "in_progress") && (
-              <Action
-                title="Block Task"
-                icon={Icon.Pause}
-                onAction={() =>
-                  runTaskAction("Task blocked", async () => {
-                    await repository.blockTask(task.id);
-                  })
-                }
-                shortcut={{ modifiers: ["cmd", "shift"], key: "b" }}
               />
             )}
             {task.status !== "open" && (
@@ -511,42 +458,6 @@ function TaskItem({
               shortcut={{ modifiers: ["ctrl"], key: "x" }}
             />
           </ActionPanel.Section>
-          {(blockedByTasks.length > 0 || blocksTasks.length > 0) && (
-            <ActionPanel.Section title="Dependencies">
-              {blockedByTasks.length > 0 && (
-                <Action.Push
-                  title="View Blocked By"
-                  icon={Icon.ArrowLeft}
-                  target={
-                    <TaskListScreen
-                      notePath={notePath}
-                      taskIds={task.blockedByTaskIds}
-                      navigationTitle="Blocked By"
-                      emptyTitle="No blocking tasks"
-                      emptyDescription="All blocking tasks were removed or are unavailable."
-                      hideFilters
-                    />
-                  }
-                />
-              )}
-              {blocksTasks.length > 0 && (
-                <Action.Push
-                  title="View Blocks"
-                  icon={Icon.ArrowRight}
-                  target={
-                    <TaskListScreen
-                      notePath={notePath}
-                      taskIds={task.blocksTaskIds}
-                      navigationTitle="Blocks"
-                      emptyTitle="No blocked tasks"
-                      emptyDescription="This task is not currently blocking any other tasks."
-                      hideFilters
-                    />
-                  }
-                />
-              )}
-            </ActionPanel.Section>
-          )}
           {!hideFilters && (
             <TaskFilterActions onSelectFilter={onSelectFilter} />
           )}
@@ -569,22 +480,12 @@ function buildTaskDetailMarkdown(task: TaskRecord): string {
   return `# ${safeHeader}\n\n---\n\n${body}`;
 }
 
-function formatDependencyMetadata(tasks: TaskRecord[]): string {
-  if (tasks.length === 0) {
-    return "None";
-  }
-
-  return tasks.map((task) => task.header).join(", ");
-}
-
 function escapeMarkdown(value: string): string {
   return value.replace(/([\\`*_{}[\]()#+\-.!|>])/g, "\\$1");
 }
 
 function getTaskIcon(status: TaskStatus): Icon {
   switch (status) {
-    case "blocked":
-      return Icon.Pause;
     case "open":
       return Icon.Circle;
     case "in_progress":

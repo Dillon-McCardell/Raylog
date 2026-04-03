@@ -37,7 +37,6 @@ test("sorts open tasks by urgency within the open view", () => {
 
 test("all view excludes archived tasks", () => {
   const tasks = [
-    createTask({ id: "blocked", status: "blocked" }),
     createTask({ id: "open", status: "open" }),
     createTask({ id: "in-progress", status: "in_progress" }),
     createTask({ id: "done", status: "done" }),
@@ -46,19 +45,29 @@ test("all view excludes archived tasks", () => {
 
   assert.deepEqual(
     filterTasks(tasks, "all", "").map((task) => task.id),
-    ["blocked", "open", "in-progress", "done"],
+    ["open", "in-progress", "done"],
   );
 });
 
-test("filters due soon tasks to active scheduled work", () => {
+test("due soon only includes open and in-progress tasks", () => {
   const soon = new Date();
   soon.setDate(soon.getDate() + 3);
   const soonIso = soon.toISOString();
 
   const tasks = [
     createTask({
+      id: "open-due",
+      status: "open",
+      dueDate: soonIso,
+    }),
+    createTask({
       id: "active-due",
       status: "in_progress",
+      dueDate: soonIso,
+    }),
+    createTask({
+      id: "done-due",
+      status: "done",
       dueDate: soonIso,
     }),
     createTask({
@@ -66,16 +75,11 @@ test("filters due soon tasks to active scheduled work", () => {
       status: "archived",
       dueDate: soonIso,
     }),
-    createTask({
-      id: "unscheduled",
-      status: "open",
-      dueDate: null,
-    }),
   ];
 
   assert.deepEqual(
     filterTasks(tasks, "due_soon", "", 7).map((task) => task.id),
-    ["active-due"],
+    ["open-due", "active-due"],
   );
 });
 
@@ -95,33 +99,6 @@ test("uses the configured due soon day threshold", () => {
   assert.deepEqual(
     filterTasks(tasks, "due_soon", "", 3).map((task) => task.id),
     ["due-in-three"],
-  );
-});
-
-test("blocked tasks appear in blocked and due soon views", () => {
-  const dueSoon = new Date();
-  dueSoon.setDate(dueSoon.getDate() + 1);
-
-  const tasks = [
-    createTask({
-      id: "blocked",
-      status: "blocked",
-      dueDate: dueSoon.toISOString(),
-    }),
-    createTask({
-      id: "open",
-      status: "open",
-      dueDate: dueSoon.toISOString(),
-    }),
-  ];
-
-  assert.deepEqual(
-    filterTasks(tasks, "blocked", "").map((task) => task.id),
-    ["blocked"],
-  );
-  assert.deepEqual(
-    filterTasks(tasks, "due_soon", "", 7).map((task) => task.id),
-    ["blocked", "open"],
   );
 });
 
@@ -221,8 +198,6 @@ function createTask(overrides: Partial<TaskRecord>): TaskRecord {
     header: overrides.header ?? "Task",
     body: overrides.body ?? "",
     status: overrides.status ?? "open",
-    blockedByTaskIds: overrides.blockedByTaskIds ?? [],
-    blocksTaskIds: overrides.blocksTaskIds ?? [],
     dueDate: overrides.dueDate ?? null,
     startDate: overrides.startDate ?? null,
     completedAt: overrides.completedAt ?? null,

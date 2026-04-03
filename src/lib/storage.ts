@@ -205,14 +205,11 @@ export class RaylogRepository {
     await this.updateDocument((document) => {
       const now = new Date().toISOString();
       const status = input.status ?? "open";
-      const dependencyInput = normalizeDependencyInput(input);
       const task: TaskRecord = {
         id: nanoid(),
         header: input.header.trim(),
         body: input.body?.trim() ?? "",
         status,
-        blockedByTaskIds: dependencyInput.blockedByTaskIds,
-        blocksTaskIds: dependencyInput.blocksTaskIds,
         dueDate: input.dueDate ?? null,
         startDate: input.startDate ?? null,
         completedAt: status === "done" ? now : null,
@@ -220,13 +217,8 @@ export class RaylogRepository {
         updatedAt: now,
       };
 
-      const tasks = applyDependencies(
-        [...document.tasks, task],
-        task.id,
-        input,
-      );
-      createdTask = tasks.find((candidate) => candidate.id === task.id);
-      return { ...document, tasks };
+      createdTask = task;
+      return { ...document, tasks: [...document.tasks, task] };
     });
 
     return createdTask!;
@@ -247,14 +239,6 @@ export class RaylogRepository {
           header: input.header.trim(),
           body: input.body?.trim() ?? "",
           status: input.status ?? task.status,
-          blockedByTaskIds:
-            input.blockedByTaskIds !== undefined
-              ? normalizeDependencyInput(input).blockedByTaskIds
-              : task.blockedByTaskIds,
-          blocksTaskIds:
-            input.blocksTaskIds !== undefined
-              ? normalizeDependencyInput(input).blocksTaskIds
-              : task.blocksTaskIds,
           dueDate: input.dueDate ?? null,
           startDate: input.startDate ?? null,
           completedAt: deriveCompletedAt(
@@ -274,9 +258,7 @@ export class RaylogRepository {
         );
       }
 
-      const tasks = applyDependencies(tasksWithTaskUpdate, taskId, input);
-      updatedTask = tasks.find((task) => task.id === taskId);
-      return { ...document, tasks };
+      return { ...document, tasks: tasksWithTaskUpdate };
     });
 
     return updatedTask!;
@@ -288,10 +270,6 @@ export class RaylogRepository {
 
   async startTask(taskId: string): Promise<TaskRecord> {
     return this.updateTaskStatus(taskId, "in_progress");
-  }
-
-  async blockTask(taskId: string): Promise<TaskRecord> {
-    return this.updateTaskStatus(taskId, "blocked");
   }
 
   async reopenTask(taskId: string): Promise<TaskRecord> {
@@ -306,20 +284,14 @@ export class RaylogRepository {
     let didDelete = false;
 
     await this.updateDocument((document) => {
-      const tasks = document.tasks
-        .filter((task) => {
-          if (task.id !== taskId) {
-            return true;
-          }
+      const tasks = document.tasks.filter((task) => {
+        if (task.id !== taskId) {
+          return true;
+        }
 
-          didDelete = true;
-          return false;
-        })
-        .map((task) => ({
-          ...task,
-          blockedByTaskIds: task.blockedByTaskIds.filter((id) => id !== taskId),
-          blocksTaskIds: task.blocksTaskIds.filter((id) => id !== taskId),
-        }));
+        didDelete = true;
+        return false;
+      });
 
       if (!didDelete) {
         throw new RaylogTaskNotFoundError(
@@ -401,19 +373,15 @@ function normalizeTaskRecord(task: unknown): TaskRecord {
   }
 
   const candidate = task as Partial<TaskRecord>;
+  if ("blockedByTaskIds" in candidate || "blocksTaskIds" in candidate) {
+    throw new Error("Task dependencies are no longer supported.");
+  }
+
   const normalized: TaskRecord = {
     id: requireString(candidate.id, "Task id"),
     header: requireString(candidate.header, "Task header"),
     body: typeof candidate.body === "string" ? candidate.body : "",
     status: normalizeTaskStatus(candidate.status),
-    blockedByTaskIds: normalizeTaskIdList(
-      candidate.blockedByTaskIds,
-      "Task blockedByTaskIds",
-    ),
-    blocksTaskIds: normalizeTaskIdList(
-      candidate.blocksTaskIds,
-      "Task blocksTaskIds",
-    ),
     dueDate: normalizeNullableString(candidate.dueDate),
     startDate: normalizeNullableString(candidate.startDate),
     completedAt: normalizeNullableString(candidate.completedAt),
@@ -455,7 +423,6 @@ function normalizeNullableString(value: unknown): string | null {
 
 function normalizeTaskStatus(value: unknown): TaskStatus {
   if (
-    value === "blocked" ||
     value === "open" ||
     value === "in_progress" ||
     value === "done" ||
@@ -485,103 +452,4 @@ function deriveCompletedAt(
 
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizeTaskIdList(value: unknown, label: string): string[] {
-  if (value === undefined) {
-    return [];
-  }
-
-  if (
-    !Array.isArray(value) ||
-    !value.every((candidate) => typeof candidate === "string")
-  ) {
-    throw new Error(`${label} is invalid.`);
-  }
-
-  return Array.from(new Set(value));
-}
-
-function normalizeDependencyInput(
-  input: TaskInput,
-): Required<Pick<TaskInput, "blockedByTaskIds" | "blocksTaskIds">> {
-  const blockedByTaskIds = normalizeTaskIdList(
-    input.blockedByTaskIds,
-    "Blocked By dependencies",
-  );
-  const blocksTaskIds = normalizeTaskIdList(
-    input.blocksTaskIds,
-    "Blocks dependencies",
-  );
-
-  return {
-    blockedByTaskIds,
-    blocksTaskIds,
-  };
-}
-
-function applyDependencies(
-  tasks: TaskRecord[],
-  taskId: string,
-  input: TaskInput,
-): TaskRecord[] {
-  const index = tasks.findIndex((task) => task.id === taskId);
-  if (index < 0) {
-    throw new RaylogTaskNotFoundError("The selected task could not be found.");
-  }
-
-  const nextTasks = tasks.map((task) => ({
-    ...task,
-    blockedByTaskIds: [...task.blockedByTaskIds],
-    blocksTaskIds: [...task.blocksTaskIds],
-  }));
-  const nextTask = nextTasks[index];
-  const dependencyInput = normalizeDependencyInput({
-    blockedByTaskIds: input.blockedByTaskIds ?? nextTask.blockedByTaskIds,
-    blocksTaskIds: input.blocksTaskIds ?? nextTask.blocksTaskIds,
-    header: "",
-  });
-
-  if (
-    dependencyInput.blockedByTaskIds.includes(taskId) ||
-    dependencyInput.blocksTaskIds.includes(taskId)
-  ) {
-    throw new RaylogStorageError("A task cannot depend on itself.");
-  }
-
-  for (const task of nextTasks) {
-    if (task.id === taskId) {
-      continue;
-    }
-
-    task.blockedByTaskIds = task.blockedByTaskIds.filter((id) => id !== taskId);
-    task.blocksTaskIds = task.blocksTaskIds.filter((id) => id !== taskId);
-  }
-
-  nextTask.blockedByTaskIds = dependencyInput.blockedByTaskIds;
-  nextTask.blocksTaskIds = dependencyInput.blocksTaskIds;
-
-  for (const dependencyId of dependencyInput.blockedByTaskIds) {
-    const dependency = nextTasks.find((task) => task.id === dependencyId);
-    if (!dependency) {
-      throw new RaylogStorageError("A selected dependency could not be found.");
-    }
-
-    dependency.blocksTaskIds = Array.from(
-      new Set([...dependency.blocksTaskIds, taskId]),
-    );
-  }
-
-  for (const dependencyId of dependencyInput.blocksTaskIds) {
-    const dependency = nextTasks.find((task) => task.id === dependencyId);
-    if (!dependency) {
-      throw new RaylogStorageError("A selected dependency could not be found.");
-    }
-
-    dependency.blockedByTaskIds = Array.from(
-      new Set([...dependency.blockedByTaskIds, taskId]),
-    );
-  }
-
-  return nextTasks;
 }
