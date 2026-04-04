@@ -282,8 +282,8 @@ function buildTaskDetailMarkdown(task: TaskRecord): string {
   const body = task.body.trim() ? task.body : "_No body_";
   const workLogSections = task.workLogs
     .map((workLog, index) => {
-      const createdLabel = `◷ Created ${escapeMarkdown(
-        new Date(workLog.createdAt).toLocaleString(),
+      const createdLabel = `◷ Logged ${escapeMarkdown(
+        formatCompactDateTime(workLog.createdAt),
       )}`;
       const wasEdited =
         workLog.updatedAt !== null &&
@@ -291,7 +291,7 @@ function buildTaskDetailMarkdown(task: TaskRecord): string {
           new Date(workLog.createdAt).getTime();
       const workLogTimeline = wasEdited
         ? `\`${createdLabel} -> ✎ Edited ${escapeMarkdown(
-            new Date(workLog.updatedAt as string).toLocaleString(),
+            formatCompactDateTime(workLog.updatedAt as string),
           )}\``
         : `\`${createdLabel}\``;
 
@@ -308,4 +308,11 @@ function buildTaskDetailMarkdown(task: TaskRecord): string {
 
 function escapeMarkdown(value: string): string {
   return value.replace(/([\\`*_{}[\]()#+\-.!|>])/g, "\\$1");
+}
+
+function formatCompactDateTime(value: string): string {
+  return new Date(value).toLocaleString([], {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }

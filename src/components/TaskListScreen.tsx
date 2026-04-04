@@ -493,7 +493,7 @@ function matchesTaskSearch(
 
 function buildTaskDetailMarkdown(task: TaskRecord): string {
   const safeHeader = escapeMarkdown(task.header);
-  const body = task.body.trim() ? task.body : "_No body_";
+  const body = task.body.trim();
   const createdLabel = `◷ Created ${escapeMarkdown(
     new Date(task.createdAt).toLocaleString(),
   )}`;
@@ -506,24 +506,33 @@ function buildTaskDetailMarkdown(task: TaskRecord): string {
     : `\`${createdLabel}\``;
   const workLogSections = task.workLogs
     .map((workLog, index) => {
-      const metadataLines = [
-        `Logged ${new Date(workLog.createdAt).toLocaleString()}`,
-      ];
+      const createdLabel = `◷ Logged ${escapeMarkdown(
+        formatCompactDateTime(workLog.createdAt),
+      )}`;
+      const wasEdited =
+        workLog.updatedAt !== null &&
+        new Date(workLog.updatedAt).getTime() >
+          new Date(workLog.createdAt).getTime();
+      const workLogTimeline = wasEdited
+        ? `\`${createdLabel} -> ✎ Edited ${escapeMarkdown(
+            formatCompactDateTime(workLog.updatedAt as string),
+          )}\``
+        : `\`${createdLabel}\``;
 
-      if (workLog.updatedAt) {
-        metadataLines.push(
-          `Edited ${new Date(workLog.updatedAt).toLocaleString()}`,
-        );
-      }
-
-      return `🗂 **Work Log ${index + 1}**\n\n\`\`\`\n${metadataLines.join(
-        "\n",
-      )}\n\`\`\`\n\n${workLog.body}`;
+      return `🗂 **Work Log ${index + 1}**\n\n${workLogTimeline}\n\n${workLog.body}`;
     })
     .join("\n\n---\n\n");
 
   if (!workLogSections) {
+    if (!body) {
+      return `\n${taskTimeline}\n# ${safeHeader}`;
+    }
+
     return `\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}`;
+  }
+
+  if (!body) {
+    return `\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${workLogSections}`;
   }
 
   return `\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}\n\n---\n\n${workLogSections}`;
@@ -531,6 +540,13 @@ function buildTaskDetailMarkdown(task: TaskRecord): string {
 
 function escapeMarkdown(value: string): string {
   return value.replace(/([\\`*_{}[\]()#+\-.!|>])/g, "\\$1");
+}
+
+function formatCompactDateTime(value: string): string {
+  return new Date(value).toLocaleString([], {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 function getTaskIcon(status: TaskStatus): Icon {
