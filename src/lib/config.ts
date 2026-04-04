@@ -1,4 +1,5 @@
 import { getPreferenceValues } from "@raycast/api";
+import type { TaskLogStatusBehavior } from "./types";
 
 interface SharedPreferences {
   storageNotePath?: string;
@@ -8,6 +9,7 @@ interface ListTasksPreferences extends SharedPreferences {
   dueSoonDays?: string;
   showDueDateIndicator?: boolean;
   showStartDateIndicator?: boolean;
+  logStatusBehavior?: string;
 }
 
 export function getConfiguredStorageNotePath(): string | undefined {
@@ -36,4 +38,17 @@ export function getDueSoonDays(): number {
   }
 
   return Math.max(0, parsed);
+}
+
+export function getTaskLogStatusBehavior(): TaskLogStatusBehavior {
+  const preferences = getPreferenceValues<ListTasksPreferences>();
+
+  switch (preferences.logStatusBehavior) {
+    case "keep_status":
+      return "keep_status";
+    case "prompt":
+      return "prompt";
+    default:
+      return "auto_start";
+  }
 }

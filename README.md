@@ -24,7 +24,8 @@ Use **List Tasks** to manage work from one command.
 - Filter by `Inbox / Open`, `In Progress`, `Due Soon`, `Done`, or `Archived`
 - Search task headers and bodies within the active view
 - Jump between task views with `Cmd-1` through `Cmd-6`
-- Review task metadata in the detail pane
+- Preview the task body and work logs in the detail pane
+- Use `Cmd+L` to jump straight into logging from the selected task
 - Trigger lifecycle actions without leaving the list
 - Open the form to edit or create tasks
 
@@ -38,6 +39,35 @@ Use **Add Task** to create a task with:
 - **Due Date**
 - **Start Date**
 
+### Window Flow
+
+Raylog revolves around two entry commands and one unified full-task window for
+reading, editing, and logging work.
+
+```mermaid
+flowchart TD
+    A["Raylog"] --> B["List Tasks"]
+    A --> C["Add Task"]
+
+    B -->|"Enter"| E["View Task"]
+    B -->|"Cmd+L"| I["Log Work Form"]
+    B -->|"Cmd+N"| F["Add Task Form"]
+    B -->|"Cmd+E"| G["Edit Task"]
+    B -->|"Cmd+Shift+C"| H["Complete Task"]
+
+    E -->|"Default action: Log Work"| I
+    E -->|"Cmd+E"| G
+    E -->|"Cmd+Shift+C"| J["Complete Task"]
+    E -->|"Archive or Delete"| K["Lifecycle Action"]
+
+    I -->|"Save Log"| E
+    G -->|"Save"| E
+    F -->|"Save"| B
+    H --> B
+    J --> E
+    K --> E
+```
+
 ## Storage Model
 
 Raylog manages a JSON block inside your configured markdown note.
@@ -47,7 +77,7 @@ Raylog manages a JSON block inside your configured markdown note.
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tasks": []
 }
 ```
@@ -59,7 +89,7 @@ Markdown outside the managed block is preserved. The managed block is intended t
 be written by Raylog, not edited manually.
 
 If the storage block is malformed or from an old schema, Raylog will prompt you
-to reset the note to a fresh v4 document.
+to reset the note to a fresh v5 document.
 
 ## Configuration
 

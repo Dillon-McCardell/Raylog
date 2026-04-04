@@ -126,6 +126,45 @@ test("search matches header and body within the selected view", () => {
   );
 });
 
+test("task log search also matches work log bodies", () => {
+  const tasks = [
+    createTask({
+      id: "a",
+      header: "Write docs",
+      body: "",
+      workLogs: [
+        {
+          id: "log-a",
+          body: "Outlined release notes",
+          createdAt: "2026-03-30T00:00:00.000Z",
+          updatedAt: null,
+        },
+      ],
+    }),
+    createTask({
+      id: "b",
+      header: "Ship release",
+      body: "",
+      workLogs: [
+        {
+          id: "log-b",
+          body: "Published docs and changelog",
+          createdAt: "2026-03-31T00:00:00.000Z",
+          updatedAt: null,
+        },
+      ],
+    }),
+  ];
+
+  assert.deepEqual(
+    filterTasks(tasks, "all", "changelog", 7, { includeWorkLogs: true }).map(
+      (task) => task.id,
+    ),
+    ["b"],
+  );
+  assert.deepEqual(filterTasks(tasks, "all", "changelog").map((task) => task.id), []);
+});
+
 test("validates date order", () => {
   assert.equal(
     validateTaskInput({
@@ -197,6 +236,7 @@ function createTask(overrides: Partial<TaskRecord>): TaskRecord {
     id: overrides.id ?? "task",
     header: overrides.header ?? "Task",
     body: overrides.body ?? "",
+    workLogs: overrides.workLogs ?? [],
     status: overrides.status ?? "open",
     dueDate: overrides.dueDate ?? null,
     startDate: overrides.startDate ?? null,

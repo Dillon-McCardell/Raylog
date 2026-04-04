@@ -52,6 +52,28 @@
           "description": "How many days ahead should count as due soon in List Tasks.",
           "placeholder": "7",
           "label": "Due Soon Days"
+        },
+        {
+          "name": "logStatusBehavior",
+          "type": "dropdown",
+          "required": false,
+          "default": "auto_start",
+          "title": "Status Change on Log",
+          "description": "Choose what happens when logging work on an open task.",
+          "data": [
+            {
+              "title": "Auto Start Task",
+              "value": "auto_start"
+            },
+            {
+              "title": "Keep Current Status",
+              "value": "keep_status"
+            },
+            {
+              "title": "Prompt Each Time",
+              "value": "prompt"
+            }
+          ]
         }
       ]
     },

@@ -27,14 +27,15 @@ test("bootstraps an empty markdown note", async () => {
   );
 });
 
-test("parses a valid v4 markdown note with a Raylog block", () => {
+test("parses a valid v5 markdown note with a Raylog block", () => {
   const markdown = mergeRaylogMarkdown("# Notes\n", {
-    schemaVersion: 4,
+    schemaVersion: 5,
     tasks: [
       {
         id: "task-1",
         header: "Header",
         body: "Body",
+        workLogs: [],
         status: "open",
         dueDate: null,
         startDate: null,
@@ -68,7 +69,7 @@ test("throws on invalid JSON inside the Raylog block", () => {
 
 test("throws on an outdated schema", () => {
   const markdown = mergeRaylogMarkdown("", {
-    schemaVersion: 3,
+    schemaVersion: 4,
     tasks: [],
     viewState: {
       hasSelectedListTasksFilter: false,
@@ -106,6 +107,7 @@ test("supports the current task lifecycle without clobbering surrounding markdow
   const updated = await repository.updateTask(created.id, {
     header: "Ship Raylog v2",
     body: "Implement storage and UI",
+    workLogs: [],
     status: "in_progress",
     dueDate: "2026-04-03T00:00:00.000Z",
     startDate: "2026-03-30T00:00:00.000Z",
@@ -131,7 +133,47 @@ test("supports the current task lifecycle without clobbering surrounding markdow
   assert.doesNotMatch(finalMarkdown, /Ship Raylog v2/);
 });
 
-test("resets malformed storage to a fresh v4 document", async () => {
+test("creates, updates, and deletes work logs without clobbering markdown", async () => {
+  const notePath = await createTempMarkdownFile("# Header\n\nContext above.\n");
+  const repository = new RaylogRepository(notePath);
+
+  const createdTask = await repository.createTask({
+    header: "Ship Raylog",
+    body: "Implement storage",
+  });
+
+  const createdWorkLog = await repository.createWorkLog(createdTask.id, {
+    body: "Implemented first pass",
+  });
+  assert.equal(createdWorkLog.updatedAt, null);
+
+  const taskAfterCreate = await repository.getTask(createdTask.id);
+  assert.equal(taskAfterCreate.workLogs.length, 1);
+  assert.equal(taskAfterCreate.workLogs[0]?.body, "Implemented first pass");
+  assert.ok(taskAfterCreate.updatedAt >= createdTask.updatedAt);
+
+  const updatedWorkLog = await repository.updateWorkLog(
+    createdTask.id,
+    createdWorkLog.id,
+    { body: "Implemented and tested first pass" },
+  );
+  assert.ok(updatedWorkLog.updatedAt);
+
+  const taskAfterUpdate = await repository.getTask(createdTask.id);
+  assert.equal(
+    taskAfterUpdate.workLogs[0]?.body,
+    "Implemented and tested first pass",
+  );
+
+  await repository.deleteWorkLog(createdTask.id, createdWorkLog.id);
+  const taskAfterDelete = await repository.getTask(createdTask.id);
+  assert.deepEqual(taskAfterDelete.workLogs, []);
+
+  const finalMarkdown = await fs.promises.readFile(notePath, "utf8");
+  assert.match(finalMarkdown, /Context above\./);
+});
+
+test("resets malformed storage to a fresh v5 document", async () => {
   const notePath = await createTempMarkdownFile(
     "<!-- raylog:start -->\n```json\n{bad-json}\n```\n<!-- raylog:end -->\n",
   );
@@ -140,7 +182,7 @@ test("resets malformed storage to a fresh v4 document", async () => {
   const markdown = await fs.promises.readFile(notePath, "utf8");
   const parsed = parseRaylogMarkdown(markdown);
 
-  assert.equal(parsed.document.schemaVersion, 4);
+  assert.equal(parsed.document.schemaVersion, 5);
   assert.deepEqual(parsed.document.tasks, []);
 });
 
@@ -169,7 +211,7 @@ test("defaults to all for current view state until a filter is explicitly select
     `<!-- raylog:start -->
 \`\`\`json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tasks": [],
   "viewState": {
     "listTasksFilter": "open"
@@ -184,14 +226,15 @@ test("defaults to all for current view state until a filter is explicitly select
   assert.equal(await repository.getListTasksFilter(), "all");
 });
 
-test("rejects v4 documents with blocked tasks", () => {
+test("rejects v5 documents with blocked tasks", () => {
   const markdown = mergeRaylogMarkdown("", {
-    schemaVersion: 4,
+    schemaVersion: 5,
     tasks: [
       {
         id: "task-1",
         header: "Header",
         body: "",
+        workLogs: [],
         status: "blocked",
         dueDate: null,
         startDate: null,
@@ -209,16 +252,43 @@ test("rejects v4 documents with blocked tasks", () => {
   assert.throws(() => parseRaylogMarkdown(markdown), RaylogParseError);
 });
 
-test("rejects v4 documents with dependency fields", () => {
+test("rejects v5 documents with dependency fields", () => {
   const markdown = mergeRaylogMarkdown("", {
-    schemaVersion: 4,
+    schemaVersion: 5,
     tasks: [
       {
         id: "task-1",
         header: "Header",
         body: "",
+        workLogs: [],
         status: "open",
         blockedByTaskIds: ["task-2"],
+        dueDate: null,
+        startDate: null,
+        completedAt: null,
+        createdAt: "2026-03-31T00:00:00.000Z",
+        updatedAt: "2026-03-31T00:00:00.000Z",
+      } as unknown as TaskRecord,
+    ],
+    viewState: {
+      hasSelectedListTasksFilter: false,
+      listTasksFilter: "all",
+    },
+  });
+
+  assert.throws(() => parseRaylogMarkdown(markdown), RaylogParseError);
+});
+
+test("rejects v5 documents with malformed work logs", () => {
+  const markdown = mergeRaylogMarkdown("", {
+    schemaVersion: 5,
+    tasks: [
+      {
+        id: "task-1",
+        header: "Header",
+        body: "",
+        workLogs: [{ id: "log-1", body: "", createdAt: "2026-03-31T00:00:00.000Z" }],
+        status: "open",
         dueDate: null,
         startDate: null,
         completedAt: null,

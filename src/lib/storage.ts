@@ -12,6 +12,8 @@ import type {
   TaskRecord,
   TaskStatus,
   TaskViewFilter,
+  TaskWorkLogInput,
+  TaskWorkLogRecord,
 } from "./types";
 import { isTaskViewFilter } from "./tasks";
 
@@ -19,6 +21,7 @@ export class RaylogStorageError extends Error {}
 export class RaylogConfigurationError extends RaylogStorageError {}
 export class RaylogParseError extends RaylogStorageError {}
 export class RaylogTaskNotFoundError extends RaylogStorageError {}
+export class RaylogWorkLogNotFoundError extends RaylogStorageError {}
 export class RaylogSchemaError extends RaylogStorageError {}
 
 const BLOCK_PATTERN = new RegExp(
@@ -209,6 +212,7 @@ export class RaylogRepository {
         id: nanoid(),
         header: input.header.trim(),
         body: input.body?.trim() ?? "",
+        workLogs: [],
         status,
         dueDate: input.dueDate ?? null,
         startDate: input.startDate ?? null,
@@ -238,6 +242,7 @@ export class RaylogRepository {
           ...task,
           header: input.header.trim(),
           body: input.body?.trim() ?? "",
+          workLogs: input.workLogs ?? task.workLogs,
           status: input.status ?? task.status,
           dueDate: input.dueDate ?? null,
           startDate: input.startDate ?? null,
@@ -296,6 +301,151 @@ export class RaylogRepository {
       if (!didDelete) {
         throw new RaylogTaskNotFoundError(
           "The selected task could not be found.",
+        );
+      }
+
+      return { ...document, tasks };
+    });
+  }
+
+  async createWorkLog(
+    taskId: string,
+    input: TaskWorkLogInput,
+  ): Promise<TaskWorkLogRecord> {
+    let createdWorkLog: TaskWorkLogRecord | undefined;
+
+    await this.updateDocument((document) => {
+      const now = new Date().toISOString();
+      const tasks = document.tasks.map((task) => {
+        if (task.id !== taskId) {
+          return task;
+        }
+
+        createdWorkLog = {
+          id: nanoid(),
+          body: input.body.trim(),
+          createdAt: now,
+          updatedAt: null,
+        };
+
+        return {
+          ...task,
+          workLogs: [...task.workLogs, createdWorkLog],
+          updatedAt: now,
+        };
+      });
+
+      if (!createdWorkLog) {
+        throw new RaylogTaskNotFoundError(
+          "The selected task could not be found.",
+        );
+      }
+
+      return { ...document, tasks };
+    });
+
+    return createdWorkLog!;
+  }
+
+  async updateWorkLog(
+    taskId: string,
+    workLogId: string,
+    input: TaskWorkLogInput,
+  ): Promise<TaskWorkLogRecord> {
+    let updatedWorkLog: TaskWorkLogRecord | undefined;
+
+    await this.updateDocument((document) => {
+      const now = new Date().toISOString();
+      let didFindTask = false;
+      const tasks = document.tasks.map((task) => {
+        if (task.id !== taskId) {
+          return task;
+        }
+
+        didFindTask = true;
+        const workLogs = task.workLogs.map((workLog) => {
+          if (workLog.id !== workLogId) {
+            return workLog;
+          }
+
+          updatedWorkLog = {
+            ...workLog,
+            body: input.body.trim(),
+            updatedAt: now,
+          };
+
+          return updatedWorkLog;
+        });
+
+        if (!updatedWorkLog) {
+          return task;
+        }
+
+        return {
+          ...task,
+          workLogs,
+          updatedAt: now,
+        };
+      });
+
+      if (!didFindTask) {
+        throw new RaylogTaskNotFoundError(
+          "The selected task could not be found.",
+        );
+      }
+
+      if (!updatedWorkLog) {
+        throw new RaylogWorkLogNotFoundError(
+          "The selected work log could not be found.",
+        );
+      }
+
+      return { ...document, tasks };
+    });
+
+    return updatedWorkLog!;
+  }
+
+  async deleteWorkLog(taskId: string, workLogId: string): Promise<void> {
+    await this.updateDocument((document) => {
+      const now = new Date().toISOString();
+      let didFindTask = false;
+      let didDeleteWorkLog = false;
+      const tasks = document.tasks.map((task) => {
+        if (task.id !== taskId) {
+          return task;
+        }
+
+        didFindTask = true;
+        const workLogs = task.workLogs.filter((workLog) => {
+          if (workLog.id !== workLogId) {
+            return true;
+          }
+
+          didDeleteWorkLog = true;
+          return false;
+        });
+
+        if (!didDeleteWorkLog) {
+          return task;
+        }
+
+        return {
+          ...task,
+          workLogs,
+          updatedAt: now,
+        };
+      });
+
+      if (!didFindTask) {
+        throw new RaylogTaskNotFoundError(
+          "The selected task could not be found.",
+        );
+      }
+
+      if (!didDeleteWorkLog) {
+        throw new RaylogWorkLogNotFoundError(
+          "The selected work log could not be found.",
         );
       }
 
@@ -381,6 +531,7 @@ function normalizeTaskRecord(task: unknown): TaskRecord {
     id: requireString(candidate.id, "Task id"),
     header: requireString(candidate.header, "Task header"),
     body: typeof candidate.body === "string" ? candidate.body : "",
+    workLogs: normalizeWorkLogs(candidate.workLogs),
     status: normalizeTaskStatus(candidate.status),
     dueDate: normalizeNullableString(candidate.dueDate),
     startDate: normalizeNullableString(candidate.startDate),
@@ -419,6 +570,28 @@ function requireString(value: unknown, label: string): string {
 
 function normalizeNullableString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function normalizeWorkLogs(value: unknown): TaskWorkLogRecord[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Task workLogs are invalid.");
+  }
+
+  return value.map((workLog) => normalizeWorkLogRecord(workLog));
+}
+
+function normalizeWorkLogRecord(value: unknown): TaskWorkLogRecord {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid work log record.");
+  }
+
+  const candidate = value as Partial<TaskWorkLogRecord>;
+  return {
+    id: requireString(candidate.id, "Work log id"),
+    body: requireString(candidate.body, "Work log body"),
+    createdAt: requireString(candidate.createdAt, "Work log createdAt"),
+    updatedAt: normalizeNullableString(candidate.updatedAt),
+  };
 }
 
 function normalizeTaskStatus(value: unknown): TaskStatus {

@@ -4,6 +4,7 @@ import type {
   TaskRecord,
   TaskStatus,
   TaskViewFilter,
+  TaskWorkLogInput,
 } from "./types";
 
 export type TaskListIndicatorColor = "red" | "blue";
@@ -11,6 +12,10 @@ export type TaskListIndicatorColor = "red" | "blue";
 export interface EnabledListMetadata {
   dueDate: boolean;
   startDate: boolean;
+}
+
+interface TaskSearchOptions {
+  includeWorkLogs?: boolean;
 }
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -64,6 +69,7 @@ export function filterTasks(
   filter: TaskViewFilter,
   searchText: string,
   dueSoonDays = 7,
+  options?: TaskSearchOptions,
 ): TaskRecord[] {
   const normalizedSearch = searchText.trim().toLowerCase();
 
@@ -76,10 +82,7 @@ export function filterTasks(
       return true;
     }
 
-    return (
-      task.header.toLowerCase().includes(normalizedSearch) ||
-      task.body.toLowerCase().includes(normalizedSearch)
-    );
+    return matchesTaskSearch(task, normalizedSearch, options);
   });
 }
 
@@ -115,6 +118,17 @@ export function validateTaskInput(input: TaskInput): string | undefined {
 
   if (startDate && dueDate && startDate.getTime() > dueDate.getTime()) {
     return "Start Date cannot be after Due Date";
+  }
+
+  return undefined;
+}
+
+export function validateWorkLogInput(
+  input: TaskWorkLogInput,
+): string | undefined {
+  const body = input.body?.trim();
+  if (!body) {
+    return "Work log entry is required";
   }
 
   return undefined;
@@ -192,6 +206,27 @@ function compareTasks(left: TaskRecord, right: TaskRecord): number {
   }
 
   return right.updatedAt.localeCompare(left.updatedAt);
+}
+
+function matchesTaskSearch(
+  task: TaskRecord,
+  normalizedSearch: string,
+  options?: TaskSearchOptions,
+): boolean {
+  if (
+    task.header.toLowerCase().includes(normalizedSearch) ||
+    task.body.toLowerCase().includes(normalizedSearch)
+  ) {
+    return true;
+  }
+
+  if (!options?.includeWorkLogs) {
+    return false;
+  }
+
+  return task.workLogs.some((workLog) =>
+    workLog.body.toLowerCase().includes(normalizedSearch),
+  );
 }
 
 function compareOpenTaskUrgency(left: TaskRecord, right: TaskRecord): number {

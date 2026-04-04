@@ -1,20 +1,19 @@
 import {
   Action,
   ActionPanel,
-  Alert,
-  Detail,
   Icon,
   List,
   Toast,
-  confirmAlert,
   environment,
   openExtensionPreferences,
   showToast,
 } from "@raycast/api";
 import path from "path";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatTaskDate } from "../lib/date";
-import { getDueSoonDays, getEnabledListMetadata } from "../lib/config";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  getDueSoonDays,
+  getEnabledListMetadata,
+} from "../lib/config";
 import { RaylogRepository } from "../lib/storage";
 import {
   filterTasks,
@@ -24,8 +23,15 @@ import {
   isActiveTaskStatus,
   sortTasks,
 } from "../lib/tasks";
-import type { TaskRecord, TaskStatus, TaskViewFilter } from "../lib/types";
+import type {
+  TaskLogStatusBehavior,
+  TaskRecord,
+  TaskStatus,
+  TaskViewFilter,
+} from "../lib/types";
+import TaskDetailView from "./TaskDetailView";
 import TaskForm from "./TaskForm";
+import TaskLogForm from "./TaskLogForm";
 
 interface TaskListScreenProps {
   notePath: string;
@@ -34,6 +40,7 @@ interface TaskListScreenProps {
   emptyTitle?: string;
   emptyDescription?: string;
   hideFilters?: boolean;
+  taskLogStatusBehavior?: TaskLogStatusBehavior;
 }
 
 export default function TaskListScreen({
@@ -43,6 +50,7 @@ export default function TaskListScreen({
   emptyTitle,
   emptyDescription,
   hideFilters = false,
+  taskLogStatusBehavior = "auto_start",
 }: TaskListScreenProps) {
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const dueSoonDays = getDueSoonDays();
@@ -116,10 +124,7 @@ export default function TaskListScreen({
           return true;
         }
 
-        return (
-          task.header.toLowerCase().includes(normalizedSearch) ||
-          task.body.toLowerCase().includes(normalizedSearch)
-        );
+        return matchesTaskSearch(task, normalizedSearch, false);
       });
     }
 
@@ -139,35 +144,10 @@ export default function TaskListScreen({
       filtering={false}
       searchBarAccessory={
         hideFilters ? undefined : (
-          <List.Dropdown
-            tooltip="Task View"
-            value={selectedFilter}
-            onChange={(value) =>
-              void handleSelectFilter(value as TaskViewFilter)
-            }
-          >
-            <List.Dropdown.Item value="all" title={getTaskFilterLabel("all")} />
-            <List.Dropdown.Item
-              value="open"
-              title={getTaskFilterLabel("open")}
-            />
-            <List.Dropdown.Item
-              value="in_progress"
-              title={getTaskFilterLabel("in_progress")}
-            />
-            <List.Dropdown.Item
-              value="due_soon"
-              title={getTaskFilterLabel("due_soon")}
-            />
-            <List.Dropdown.Item
-              value="done"
-              title={getTaskFilterLabel("done")}
-            />
-            <List.Dropdown.Item
-              value="archived"
-              title={getTaskFilterLabel("archived")}
-            />
-          </List.Dropdown>
+          <TaskFilterDropdown
+            selectedFilter={selectedFilter}
+            onSelectFilter={handleSelectFilter}
+          />
         )
       }
     >
@@ -196,9 +176,7 @@ export default function TaskListScreen({
                 <Action.Push
                   title="Add Task"
                   icon={Icon.Plus}
-                  target={
-                    <TaskForm notePath={notePath} onDidSave={loadTasks} />
-                  }
+                  target={<TaskForm notePath={notePath} onDidSave={loadTasks} />}
                   shortcut={{ modifiers: ["cmd"], key: "n" }}
                 />
                 <Action
@@ -227,6 +205,7 @@ export default function TaskListScreen({
             task={task}
             onReload={loadTasks}
             hideFilters={hideFilters}
+            taskLogStatusBehavior={taskLogStatusBehavior}
           />
         ))
       )}
@@ -244,6 +223,39 @@ interface TaskItemProps {
   task: TaskRecord;
   onReload: () => Promise<void>;
   hideFilters: boolean;
+  taskLogStatusBehavior: TaskLogStatusBehavior;
+}
+
+function TaskFilterDropdown({
+  selectedFilter,
+  onSelectFilter,
+}: {
+  selectedFilter: TaskViewFilter;
+  onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void;
+}) {
+  return (
+    <List.Dropdown
+      tooltip="Task View"
+      value={selectedFilter}
+      onChange={(value) => void onSelectFilter(value as TaskViewFilter)}
+    >
+      <List.Dropdown.Item value="all" title={getTaskFilterLabel("all")} />
+      <List.Dropdown.Item value="open" title={getTaskFilterLabel("open")} />
+      <List.Dropdown.Item
+        value="in_progress"
+        title={getTaskFilterLabel("in_progress")}
+      />
+      <List.Dropdown.Item
+        value="due_soon"
+        title={getTaskFilterLabel("due_soon")}
+      />
+      <List.Dropdown.Item value="done" title={getTaskFilterLabel("done")} />
+      <List.Dropdown.Item
+        value="archived"
+        title={getTaskFilterLabel("archived")}
+      />
+    </List.Dropdown>
+  );
 }
 
 function TaskFilterActions({
@@ -300,6 +312,7 @@ function TaskItem({
   task,
   onReload,
   hideFilters,
+  taskLogStatusBehavior,
 }: TaskItemProps) {
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const indicators = getTaskListIndicators(task, enabledListMetadata);
@@ -324,24 +337,23 @@ function TaskItem({
     [onReload],
   );
 
-  const handleDelete = useCallback(async () => {
-    const confirmed = await confirmAlert({
-      title: "Delete task?",
-      message: "This permanently removes the task from the storage note.",
-      primaryAction: {
-        title: "Delete Task",
-        style: Alert.ActionStyle.Destructive,
-      },
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    await runTaskAction("Task deleted", async () => {
-      await repository.deleteTask(task.id);
-    });
-  }, [repository, runTaskAction, task.id]);
+  const taskView = (
+    <TaskDetailView
+      notePath={notePath}
+      taskId={task.id}
+      statusBehavior={taskLogStatusBehavior}
+      onDidChangeTask={onReload}
+    />
+  );
+  const taskLogForm = (
+    <TaskLogForm
+      notePath={notePath}
+      task={task}
+      statusBehavior={taskLogStatusBehavior}
+      onDidSave={onReload}
+      onDidChangeTask={onReload}
+    />
+  );
 
   return (
     <List.Item
@@ -359,59 +371,22 @@ function TaskItem({
       detail={
         <List.Item.Detail
           markdown={buildTaskDetailMarkdown(task)}
-          metadata={
-            <List.Item.Detail.Metadata>
-              <List.Item.Detail.Metadata.Label
-                title="Created"
-                text={new Date(task.createdAt).toLocaleString()}
-              />
-              <List.Item.Detail.Metadata.Label
-                title="Updated"
-                text={new Date(task.updatedAt).toLocaleString()}
-              />
-            </List.Item.Detail.Metadata>
-          }
         />
       }
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            {isActiveTaskStatus(task.status) && (
-              <Action
-                title="Complete Task"
-                icon={Icon.CheckCircle}
-                onAction={() =>
-                  runTaskAction("Task completed", async () => {
-                    await repository.completeTask(task.id);
-                  })
-                }
-                shortcut={{ modifiers: ["cmd"], key: "enter" }}
-              />
-            )}
-            {task.status === "open" && (
-              <Action
-                title="Start Task"
-                icon={Icon.Play}
-                onAction={() =>
-                  runTaskAction("Task started", async () => {
-                    await repository.startTask(task.id);
-                  })
-                }
-                shortcut={{ modifiers: ["cmd"], key: "s" }}
-              />
-            )}
-            {task.status !== "open" && (
-              <Action
-                title="Reopen Task"
-                icon={Icon.ArrowCounterClockwise}
-                onAction={() =>
-                  runTaskAction("Task reopened", async () => {
-                    await repository.reopenTask(task.id);
-                  })
-                }
-                shortcut={{ modifiers: ["cmd"], key: "r" }}
-              />
-            )}
+            <Action.Push
+              title="Open Task"
+              icon={Icon.Eye}
+              target={taskView}
+            />
+            <Action.Push
+              title="Log Work"
+              icon={Icon.Pencil}
+              shortcut={{ modifiers: ["cmd"], key: "l" }}
+              target={taskLogForm}
+            />
             <Action.Push
               title="Edit Task"
               icon={Icon.Pencil}
@@ -432,13 +407,43 @@ function TaskItem({
               target={<TaskForm notePath={notePath} onDidSave={onReload} />}
               shortcut={{ modifiers: ["cmd"], key: "n" }}
             />
-            <Action.Push
-              title="View Task Metadata"
-              icon={Icon.Info}
-              shortcut={{ modifiers: ["cmd"], key: "i" }}
-              target={<TaskMetadataDetail task={task} />}
-            />
-            {task.status !== "archived" && (
+            {isActiveTaskStatus(task.status) && (
+              <Action
+                title="Complete Task"
+                icon={Icon.CheckCircle}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+                onAction={() =>
+                  runTaskAction("Task completed", async () => {
+                    await repository.completeTask(task.id);
+                  })
+                }
+              />
+            )}
+            {task.status === "open" && (
+              <Action
+                title="Start Task"
+                icon={Icon.Play}
+                onAction={() =>
+                  runTaskAction("Task started", async () => {
+                    await repository.startTask(task.id);
+                  })
+                }
+                shortcut={{ modifiers: ["cmd"], key: "s" }}
+              />
+            )}
+            {task.status === "done" && (
+              <Action
+                title="Reopen Task"
+                icon={Icon.ArrowCounterClockwise}
+                onAction={() =>
+                  runTaskAction("Task reopened", async () => {
+                    await repository.reopenTask(task.id);
+                  })
+                }
+                shortcut={{ modifiers: ["cmd"], key: "r" }}
+              />
+            )}
+            {task.status === "in_progress" && (
               <Action
                 title="Archive Task"
                 icon={Icon.Box}
@@ -450,17 +455,8 @@ function TaskItem({
                 shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
               />
             )}
-            <Action
-              title="Delete Task"
-              icon={Icon.Trash}
-              style={Action.Style.Destructive}
-              onAction={handleDelete}
-              shortcut={{ modifiers: ["ctrl"], key: "x" }}
-            />
           </ActionPanel.Section>
-          {!hideFilters && (
-            <TaskFilterActions onSelectFilter={onSelectFilter} />
-          )}
+          {!hideFilters && <TaskFilterActions onSelectFilter={onSelectFilter} />}
           <ActionPanel.Section>
             <Action
               title="Open Extension Preferences"
@@ -474,10 +470,63 @@ function TaskItem({
   );
 }
 
+function matchesTaskSearch(
+  task: TaskRecord,
+  normalizedSearch: string,
+  includeWorkLogs: boolean,
+): boolean {
+  if (
+    task.header.toLowerCase().includes(normalizedSearch) ||
+    task.body.toLowerCase().includes(normalizedSearch)
+  ) {
+    return true;
+  }
+
+  if (!includeWorkLogs) {
+    return false;
+  }
+
+  return task.workLogs.some((workLog) =>
+    workLog.body.toLowerCase().includes(normalizedSearch),
+  );
+}
+
 function buildTaskDetailMarkdown(task: TaskRecord): string {
   const safeHeader = escapeMarkdown(task.header);
   const body = task.body.trim() ? task.body : "_No body_";
-  return `# ${safeHeader}\n\n---\n\n${body}`;
+  const createdLabel = `◷ Created ${escapeMarkdown(
+    new Date(task.createdAt).toLocaleString(),
+  )}`;
+  const wasEdited =
+    new Date(task.updatedAt).getTime() > new Date(task.createdAt).getTime();
+  const taskTimeline = wasEdited
+    ? `\`${createdLabel} -> ✎ Edited ${escapeMarkdown(
+        new Date(task.updatedAt).toLocaleString(),
+      )}\``
+    : `\`${createdLabel}\``;
+  const workLogSections = task.workLogs
+    .map((workLog, index) => {
+      const metadataLines = [
+        `Logged ${new Date(workLog.createdAt).toLocaleString()}`,
+      ];
+
+      if (workLog.updatedAt) {
+        metadataLines.push(
+          `Edited ${new Date(workLog.updatedAt).toLocaleString()}`,
+        );
+      }
+
+      return `🗂 **Work Log ${index + 1}**\n\n\`\`\`\n${metadataLines.join(
+        "\n",
+      )}\n\`\`\`\n\n${workLog.body}`;
+    })
+    .join("\n\n---\n\n");
+
+  if (!workLogSections) {
+    return `\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}`;
+  }
+
+  return `\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}\n\n---\n\n${workLogSections}`;
 }
 
 function escapeMarkdown(value: string): string {
@@ -501,44 +550,5 @@ function getIndicatorIcon(color: "red" | "blue"): string {
   return path.join(
     environment.assetsPath,
     color === "red" ? "due-indicator.svg" : "start-indicator.svg",
-  );
-}
-
-function TaskMetadataDetail({ task }: { task: TaskRecord }) {
-  return (
-    <Detail
-      navigationTitle="Task Metadata"
-      markdown={`# ${escapeMarkdown(task.header)}\n\nTask metadata`}
-      metadata={
-        <Detail.Metadata>
-          <Detail.Metadata.Label
-            title="Status"
-            text={getTaskStatusLabel(task.status)}
-          />
-          <Detail.Metadata.Label title="Header" text={task.header} />
-          <Detail.Metadata.Label
-            title="Due Date"
-            text={formatTaskDate(task.dueDate)}
-          />
-          <Detail.Metadata.Label
-            title="Start Date"
-            text={formatTaskDate(task.startDate)}
-          />
-          <Detail.Metadata.Label
-            title="Completed"
-            text={formatTaskDate(task.completedAt)}
-          />
-          <Detail.Metadata.Separator />
-          <Detail.Metadata.Label
-            title="Created"
-            text={new Date(task.createdAt).toLocaleString()}
-          />
-          <Detail.Metadata.Label
-            title="Updated"
-            text={new Date(task.updatedAt).toLocaleString()}
-          />
-        </Detail.Metadata>
-      }
-    />
   );
 }
