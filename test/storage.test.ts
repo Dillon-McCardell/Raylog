@@ -8,6 +8,7 @@ import {
   ensureStorageNote,
   mergeRaylogMarkdown,
   parseRaylogMarkdown,
+  RaylogInitializationRequiredError,
   RaylogParseError,
   RaylogRepository,
   RaylogSchemaError,
@@ -15,15 +16,11 @@ import {
 } from "../src/lib/storage";
 import type { TaskRecord } from "../src/lib/types";
 
-test("bootstraps an empty markdown note", async () => {
+test("flags an empty markdown note for initialization", async () => {
   const notePath = await createTempMarkdownFile("");
-  await ensureStorageNote(notePath);
-  const markdown = await fs.promises.readFile(notePath, "utf8");
-
-  assert.match(markdown, /raylog:start/);
-  assert.deepEqual(
-    parseRaylogMarkdown(markdown).document,
-    createEmptyDocument(),
+  await assert.rejects(
+    () => ensureStorageNote(notePath),
+    RaylogInitializationRequiredError,
   );
 });
 
@@ -80,20 +77,24 @@ test("throws on an outdated schema", () => {
   assert.throws(() => parseRaylogMarkdown(markdown), RaylogSchemaError);
 });
 
-test("initializes a missing block while preserving markdown content", async () => {
+test("flags a missing block while preserving markdown content", async () => {
   const originalMarkdown = "# Existing Note\n\nKeep this text.";
   const notePath = await createTempMarkdownFile(originalMarkdown);
 
-  await ensureStorageNote(notePath);
+  await assert.rejects(
+    () => ensureStorageNote(notePath),
+    RaylogInitializationRequiredError,
+  );
 
-  const updatedMarkdown = await fs.promises.readFile(notePath, "utf8");
-  assert.match(updatedMarkdown, /# Existing Note/);
-  assert.match(updatedMarkdown, /Keep this text\./);
-  assert.match(updatedMarkdown, /raylog:start/);
+  const unchangedMarkdown = await fs.promises.readFile(notePath, "utf8");
+  assert.match(unchangedMarkdown, /# Existing Note/);
+  assert.match(unchangedMarkdown, /Keep this text\./);
+  assert.doesNotMatch(unchangedMarkdown, /raylog:start/);
 });
 
 test("supports the current task lifecycle without clobbering surrounding markdown", async () => {
   const notePath = await createTempMarkdownFile("# Header\n\nContext above.\n");
+  await resetStorageNote(notePath);
   const repository = new RaylogRepository(notePath);
 
   const created = await repository.createTask({
@@ -135,6 +136,7 @@ test("supports the current task lifecycle without clobbering surrounding markdow
 
 test("creates, updates, and deletes work logs without clobbering markdown", async () => {
   const notePath = await createTempMarkdownFile("# Header\n\nContext above.\n");
+  await resetStorageNote(notePath);
   const repository = new RaylogRepository(notePath);
 
   const createdTask = await repository.createTask({
@@ -186,8 +188,20 @@ test("resets malformed storage to a fresh v5 document", async () => {
   assert.deepEqual(parsed.document.tasks, []);
 });
 
+test("creates a fresh database for an empty markdown note on reset", async () => {
+  const notePath = await createTempMarkdownFile("");
+
+  await resetStorageNote(notePath);
+  const markdown = await fs.promises.readFile(notePath, "utf8");
+  const parsed = parseRaylogMarkdown(markdown);
+
+  assert.equal(parsed.document.schemaVersion, 5);
+  assert.deepEqual(parsed.document.tasks, []);
+});
+
 test("throws when mutating a missing task", async () => {
   const notePath = await createTempMarkdownFile("");
+  await resetStorageNote(notePath);
   const repository = new RaylogRepository(notePath);
 
   await assert.rejects(() => repository.completeTask("missing"));
@@ -196,6 +210,7 @@ test("throws when mutating a missing task", async () => {
 
 test("persists the selected list filter in the storage document", async () => {
   const notePath = await createTempMarkdownFile("");
+  await resetStorageNote(notePath);
   const repository = new RaylogRepository(notePath);
 
   await repository.setListTasksFilter("archived");

@@ -19,6 +19,7 @@ import { isTaskViewFilter } from "./tasks";
 
 export class RaylogStorageError extends Error {}
 export class RaylogConfigurationError extends RaylogStorageError {}
+export class RaylogInitializationRequiredError extends RaylogStorageError {}
 export class RaylogParseError extends RaylogStorageError {}
 export class RaylogTaskNotFoundError extends RaylogStorageError {}
 export class RaylogWorkLogNotFoundError extends RaylogStorageError {}
@@ -114,12 +115,11 @@ export function mergeRaylogMarkdown(
 export async function ensureStorageNote(notePath: string): Promise<void> {
   await validateStorageNotePath(notePath);
   const markdown = await fs.promises.readFile(notePath, "utf8");
-  const { document, hasManagedBlock } = parseRaylogMarkdown(markdown);
+  const { hasManagedBlock } = parseRaylogMarkdown(markdown);
 
   if (!hasManagedBlock || markdown.trim().length === 0) {
-    await writeMarkdownAtomically(
-      notePath,
-      mergeRaylogMarkdown(markdown, document),
+    throw new RaylogInitializationRequiredError(
+      "The configured task storage note does not contain a valid Raylog database.",
     );
   }
 }
@@ -512,9 +512,28 @@ async function writeMarkdownAtomically(
   notePath: string,
   markdown: string,
 ): Promise<void> {
-  const tempPath = `${notePath}.${process.pid}.${Date.now()}.tmp`;
+  const directory = path.dirname(notePath);
+  const basename = path.basename(notePath);
+  const tempPath = path.join(
+    directory,
+    `.${basename}.${process.pid}.${Date.now()}.tmp`,
+  );
+
+  await fs.promises.mkdir(directory, { recursive: true });
   await fs.promises.writeFile(tempPath, markdown, "utf8");
-  await fs.promises.rename(tempPath, notePath);
+
+  try {
+    await fs.promises.rename(tempPath, notePath);
+  } catch (error) {
+    await fs.promises.rm(tempPath, { force: true });
+
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      await fs.promises.writeFile(notePath, markdown, "utf8");
+      return;
+    }
+
+    throw error;
+  }
 }
 
 function normalizeTaskRecord(task: unknown): TaskRecord {

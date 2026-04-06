@@ -3,7 +3,7 @@
   "name": "raylog",
   "title": "Raylog",
   "description": "Manage focused local tasks from Raycast with a standalone markdown note.",
-  "icon": "icon.png",
+  "icon": "Raylog.png",
   "author": "dillon-mccardell",
   "categories": [
     "Productivity",

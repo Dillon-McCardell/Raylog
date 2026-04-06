@@ -65,7 +65,9 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
       status: values.status,
       dueDate: toCanonicalDateString(values.dueDate),
       startDate: toCanonicalDateString(values.startDate),
-      workLogs: isEditing ? buildUpdatedWorkLogs(task!.workLogs, values.workLogs) : [],
+      workLogs: isEditing
+        ? buildUpdatedWorkLogs(task!.workLogs, values.workLogs)
+        : [],
     };
 
     if (!values.header.trim()) {
@@ -73,7 +75,9 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
       return;
     }
 
-    const emptyWorkLog = values.workLogs.find((workLog) => !workLog.body.trim());
+    const emptyWorkLog = values.workLogs.find(
+      (workLog) => !workLog.body.trim(),
+    );
     if (emptyWorkLog) {
       await showToast({
         style: Toast.Style.Failure,

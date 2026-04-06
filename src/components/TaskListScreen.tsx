@@ -9,17 +9,13 @@ import {
   showToast,
 } from "@raycast/api";
 import path from "path";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import {
-  getDueSoonDays,
-  getEnabledListMetadata,
-} from "../lib/config";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getDueSoonDays, getEnabledListMetadata } from "../lib/config";
 import { RaylogRepository } from "../lib/storage";
 import {
   filterTasks,
   getTaskFilterLabel,
   getTaskListIndicators,
-  getTaskStatusLabel,
   isActiveTaskStatus,
   sortTasks,
 } from "../lib/tasks";
@@ -176,7 +172,9 @@ export default function TaskListScreen({
                 <Action.Push
                   title="Add Task"
                   icon={Icon.Plus}
-                  target={<TaskForm notePath={notePath} onDidSave={loadTasks} />}
+                  target={
+                    <TaskForm notePath={notePath} onDidSave={loadTasks} />
+                  }
                   shortcut={{ modifiers: ["cmd"], key: "n" }}
                 />
                 <Action
@@ -368,19 +366,11 @@ function TaskItem({
             }))
           : undefined
       }
-      detail={
-        <List.Item.Detail
-          markdown={buildTaskDetailMarkdown(task)}
-        />
-      }
+      detail={<List.Item.Detail markdown={buildTaskDetailMarkdown(task)} />}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.Push
-              title="Open Task"
-              icon={Icon.Eye}
-              target={taskView}
-            />
+            <Action.Push title="Open Task" icon={Icon.Eye} target={taskView} />
             <Action.Push
               title="Log Work"
               icon={Icon.Pencil}
@@ -456,7 +446,9 @@ function TaskItem({
               />
             )}
           </ActionPanel.Section>
-          {!hideFilters && <TaskFilterActions onSelectFilter={onSelectFilter} />}
+          {!hideFilters && (
+            <TaskFilterActions onSelectFilter={onSelectFilter} />
+          )}
           <ActionPanel.Section>
             <Action
               title="Open Extension Preferences"

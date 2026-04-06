@@ -11,10 +11,7 @@ import {
 } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatTaskDate } from "../lib/date";
-import {
-  getTaskStatusLabel,
-  isActiveTaskStatus,
-} from "../lib/tasks";
+import { getTaskStatusLabel, isActiveTaskStatus } from "../lib/tasks";
 import { RaylogRepository } from "../lib/storage";
 import type { TaskLogStatusBehavior, TaskRecord } from "../lib/types";
 import TaskForm from "./TaskForm";

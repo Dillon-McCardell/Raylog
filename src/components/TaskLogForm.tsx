@@ -158,7 +158,9 @@ async function maybeAdvanceTaskStatus(
   await repository.startTask(task.id);
 }
 
-function buildWorkLogDescription(workLog: TaskRecord["workLogs"][number]): string {
+function buildWorkLogDescription(
+  workLog: TaskRecord["workLogs"][number],
+): string {
   const created = new Date(workLog.createdAt).toLocaleString();
   const edited = workLog.updatedAt
     ? `\n\nEdited: ${new Date(workLog.updatedAt).toLocaleString()}`
