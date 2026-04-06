@@ -56,11 +56,86 @@ test("parses a valid v5 markdown note with a Raylog block", () => {
 
 test("throws on invalid JSON inside the Raylog block", () => {
   assert.throws(
-    () =>
+    () => {
       parseRaylogMarkdown(
-        "<!-- raylog:start -->\n```json\n{not-json}\n```\n<!-- raylog:end -->\n",
-      ),
-    RaylogParseError,
+        `<!-- raylog:start -->
+\`\`\`json
+{
+  "schemaVersion": 5,
+  nope,
+  "tasks": []
+}
+\`\`\`
+<!-- raylog:end -->
+`,
+      );
+    },
+    (error: unknown) => {
+      assert.ok(error instanceof RaylogParseError);
+      assert.match(error.message, /Raylog database is corrupted/i);
+      assert.match(error.message, /Malformed JSON near line 3, column 3/i);
+      return true;
+    },
+  );
+});
+
+test("describes malformed task data inside the Raylog block", () => {
+  assert.throws(
+    () => {
+      parseRaylogMarkdown(
+        mergeRaylogMarkdown("", {
+          schemaVersion: 5,
+          tasks: [
+            {
+              id: "task-1",
+              header: "",
+              body: "",
+              workLogs: [],
+              status: "open",
+              dueDate: null,
+              startDate: null,
+              completedAt: null,
+              createdAt: "2026-03-31T00:00:00.000Z",
+              updatedAt: "2026-03-31T00:00:00.000Z",
+            } as unknown as TaskRecord,
+          ],
+          viewState: {
+            hasSelectedListTasksFilter: false,
+            listTasksFilter: "all",
+          },
+        }),
+      );
+    },
+    (error: unknown) => {
+      assert.ok(error instanceof RaylogParseError);
+      assert.match(error.message, /Raylog database is corrupted/i);
+      assert.match(
+        error.message,
+        /Malformed task data: task header is invalid/i,
+      );
+      return true;
+    },
+  );
+});
+
+test("describes unsupported schema versions clearly", () => {
+  const markdown = mergeRaylogMarkdown("", {
+    schemaVersion: 4,
+    tasks: [],
+    viewState: {
+      hasSelectedListTasksFilter: false,
+      listTasksFilter: "all",
+    },
+  });
+
+  assert.throws(
+    () => parseRaylogMarkdown(markdown),
+    (error: unknown) => {
+      assert.ok(error instanceof RaylogSchemaError);
+      assert.match(error.message, /unsupported schema version/i);
+      assert.match(error.message, /Expected schema v5, found schema v4/i);
+      return true;
+    },
   );
 });
 
@@ -302,7 +377,9 @@ test("rejects v5 documents with malformed work logs", () => {
         id: "task-1",
         header: "Header",
         body: "",
-        workLogs: [{ id: "log-1", body: "", createdAt: "2026-03-31T00:00:00.000Z" }],
+        workLogs: [
+          { id: "log-1", body: "", createdAt: "2026-03-31T00:00:00.000Z" },
+        ],
         status: "open",
         dueDate: null,
         startDate: null,

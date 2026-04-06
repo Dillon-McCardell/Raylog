@@ -12,7 +12,11 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatTaskDate } from "../lib/date";
 import { getTaskStatusLabel, isActiveTaskStatus } from "../lib/tasks";
-import { RaylogRepository } from "../lib/storage";
+import {
+  getRaylogErrorMessage,
+  isRaylogCorruptionError,
+  RaylogRepository,
+} from "../lib/storage";
 import type { TaskLogStatusBehavior, TaskRecord } from "../lib/types";
 import TaskForm from "./TaskForm";
 import TaskLogForm from "./TaskLogForm";
@@ -44,9 +48,7 @@ export default function TaskDetailView({
       setLoadError(undefined);
     } catch (error) {
       setTask(undefined);
-      setLoadError(
-        error instanceof Error ? error.message : "Unable to load task.",
-      );
+      setLoadError(getRaylogErrorMessage(error, "Unable to load task."));
     } finally {
       setIsLoading(false);
     }
@@ -71,8 +73,13 @@ export default function TaskDetailView({
       } catch (error) {
         await showToast({
           style: Toast.Style.Failure,
-          title: `Unable to ${title.toLowerCase()}`,
-          message: error instanceof Error ? error.message : undefined,
+          title: isRaylogCorruptionError(error)
+            ? "Raylog database is corrupted"
+            : `Unable to ${title.toLowerCase()}`,
+          message: getRaylogErrorMessage(
+            error,
+            `Unable to ${title.toLowerCase()}.`,
+          ),
         });
       }
     },
@@ -110,8 +117,10 @@ export default function TaskDetailView({
     } catch (error) {
       await showToast({
         style: Toast.Style.Failure,
-        title: "Unable to delete task",
-        message: error instanceof Error ? error.message : undefined,
+        title: isRaylogCorruptionError(error)
+          ? "Raylog database is corrupted"
+          : "Unable to delete task",
+        message: getRaylogErrorMessage(error, "Unable to delete task."),
       });
     }
   }, [onDidChangeTask, pop, repository, task]);

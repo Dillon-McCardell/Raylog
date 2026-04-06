@@ -20,10 +20,26 @@ import { isTaskViewFilter } from "./tasks";
 export class RaylogStorageError extends Error {}
 export class RaylogConfigurationError extends RaylogStorageError {}
 export class RaylogInitializationRequiredError extends RaylogStorageError {}
-export class RaylogParseError extends RaylogStorageError {}
+export class RaylogParseError extends RaylogStorageError {
+  constructor(
+    message: string,
+    readonly detail?: string,
+  ) {
+    super(formatStorageErrorMessage(message, detail));
+    this.name = "RaylogParseError";
+  }
+}
 export class RaylogTaskNotFoundError extends RaylogStorageError {}
 export class RaylogWorkLogNotFoundError extends RaylogStorageError {}
-export class RaylogSchemaError extends RaylogStorageError {}
+export class RaylogSchemaError extends RaylogStorageError {
+  constructor(
+    message: string,
+    readonly detail?: string,
+  ) {
+    super(formatStorageErrorMessage(message, detail));
+    this.name = "RaylogSchemaError";
+  }
+}
 
 const BLOCK_PATTERN = new RegExp(
   `${escapeForRegExp(RAYLOG_START_MARKER)}\\s*${escapeForRegExp("```json")}\\s*([\\s\\S]*?)\\s*${escapeForRegExp("```")}\\s*${escapeForRegExp(RAYLOG_END_MARKER)}`,
@@ -63,14 +79,24 @@ export function parseRaylogMarkdown(markdown: string): {
 
   try {
     const parsed = JSON.parse(match[1]) as Partial<RaylogDocument>;
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      parsed.schemaVersion !== RAYLOG_SCHEMA_VERSION ||
-      !Array.isArray(parsed.tasks)
-    ) {
+    if (typeof parsed !== "object" || parsed === null) {
       throw new RaylogSchemaError(
-        "The configured storage note does not use the current Raylog schema.",
+        "The Raylog database is corrupted.",
+        "The managed JSON block must contain an object.",
+      );
+    }
+
+    if (parsed.schemaVersion !== RAYLOG_SCHEMA_VERSION) {
+      throw new RaylogSchemaError(
+        "The Raylog database uses an unsupported schema version.",
+        `Expected schema v${RAYLOG_SCHEMA_VERSION}, found ${formatSchemaVersion(parsed.schemaVersion)}.`,
+      );
+    }
+
+    if (!Array.isArray(parsed.tasks)) {
+      throw new RaylogSchemaError(
+        "The Raylog database is corrupted.",
+        'The managed JSON block is missing the required "tasks" array.',
       );
     }
 
@@ -88,11 +114,25 @@ export function parseRaylogMarkdown(markdown: string): {
     }
 
     throw new RaylogParseError(
-      error instanceof Error
-        ? error.message
-        : "Unable to parse Raylog JSON payload.",
+      "The Raylog database is corrupted.",
+      describeParseFailure(match[1], error),
     );
   }
+}
+
+export function isRaylogCorruptionError(
+  error: unknown,
+): error is RaylogParseError | RaylogSchemaError {
+  return (
+    error instanceof RaylogParseError || error instanceof RaylogSchemaError
+  );
+}
+
+export function getRaylogErrorMessage(
+  error: unknown,
+  fallback: string,
+): string {
+  return error instanceof Error ? error.message : fallback;
 }
 
 export function mergeRaylogMarkdown(
@@ -644,4 +684,97 @@ function deriveCompletedAt(
 
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function formatStorageErrorMessage(message: string, detail?: string): string {
+  return detail ? `${message} ${detail}` : message;
+}
+
+function formatSchemaVersion(value: unknown): string {
+  return typeof value === "number" ? `schema v${value}` : "an unknown schema";
+}
+
+function describeParseFailure(payload: string, error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "The managed JSON block could not be parsed.";
+  }
+
+  const jsonSyntaxDetail = describeJsonSyntaxError(payload, error.message);
+  if (jsonSyntaxDetail) {
+    return jsonSyntaxDetail;
+  }
+
+  return describeValidationFailure(error.message);
+}
+
+function describeJsonSyntaxError(
+  payload: string,
+  message: string,
+): string | undefined {
+  const match = message.match(
+    /^(.*?) at position (\d+)(?: \(line (\d+) column (\d+)\))?$/i,
+  );
+
+  if (!match) {
+    return undefined;
+  }
+
+  const [, reason, positionText, lineText, columnText] = match;
+  const position = Number.parseInt(positionText, 10);
+  const { line, column } =
+    lineText && columnText
+      ? {
+          line: Number.parseInt(lineText, 10),
+          column: Number.parseInt(columnText, 10),
+        }
+      : getLineAndColumnFromPosition(payload, position);
+
+  return `Malformed JSON near line ${line}, column ${column}: ${lowercaseFirst(trimTrailingPeriod(reason))}.`;
+}
+
+function describeValidationFailure(message: string): string {
+  if (message.startsWith("Task ")) {
+    return `Malformed task data: ${lowercaseFirst(trimTrailingPeriod(message))}.`;
+  }
+
+  if (message.startsWith("Work log ")) {
+    return `Malformed work log data: ${lowercaseFirst(trimTrailingPeriod(message))}.`;
+  }
+
+  if (
+    message === "Invalid task record." ||
+    message === "Task workLogs are invalid." ||
+    message === "Invalid work log record." ||
+    message === "Task status is invalid."
+  ) {
+    return `${trimTrailingPeriod(message)}.`;
+  }
+
+  return `Malformed Raylog data: ${lowercaseFirst(trimTrailingPeriod(message))}.`;
+}
+
+function trimTrailingPeriod(value: string): string {
+  return value.replace(/\.+$/, "");
+}
+
+function lowercaseFirst(value: string): string {
+  return value.length > 0
+    ? `${value.charAt(0).toLowerCase()}${value.slice(1)}`
+    : value;
+}
+
+function getLineAndColumnFromPosition(
+  payload: string,
+  position: number,
+): { line: number; column: number } {
+  const clampedPosition = Number.isNaN(position)
+    ? payload.length
+    : Math.min(Math.max(position, 0), payload.length);
+  const preceding = payload.slice(0, clampedPosition);
+  const lines = preceding.split("\n");
+
+  return {
+    line: lines.length,
+    column: (lines.at(-1)?.length ?? 0) + 1,
+  };
 }

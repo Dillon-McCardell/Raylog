@@ -12,7 +12,11 @@ import {
 } from "@raycast/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fromCanonicalDateString, toCanonicalDateString } from "../lib/date";
-import { RaylogRepository } from "../lib/storage";
+import {
+  getRaylogErrorMessage,
+  isRaylogCorruptionError,
+  RaylogRepository,
+} from "../lib/storage";
 import { getTaskStatusLabel, validateTaskInput } from "../lib/tasks";
 import type { TaskRecord, TaskStatus, TaskWorkLogRecord } from "../lib/types";
 
@@ -121,8 +125,15 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
     } catch (error) {
       await showToast({
         style: Toast.Style.Failure,
-        title: isEditing ? "Unable to update task" : "Unable to create task",
-        message: error instanceof Error ? error.message : undefined,
+        title: isRaylogCorruptionError(error)
+          ? "Raylog database is corrupted"
+          : isEditing
+            ? "Unable to update task"
+            : "Unable to create task",
+        message: getRaylogErrorMessage(
+          error,
+          isEditing ? "Unable to update task." : "Unable to create task.",
+        ),
       });
     }
   }

@@ -1,17 +1,19 @@
 import {
   Action,
   ActionPanel,
-  Alert,
   Form,
   Icon,
   Toast,
-  confirmAlert,
   showToast,
   useNavigation,
 } from "@raycast/api";
 import { useMemo, useState } from "react";
 import { validateWorkLogInput } from "../lib/tasks";
-import { RaylogRepository } from "../lib/storage";
+import {
+  getRaylogErrorMessage,
+  isRaylogCorruptionError,
+  RaylogRepository,
+} from "../lib/storage";
 import type { TaskLogStatusBehavior, TaskRecord } from "../lib/types";
 import TaskForm from "./TaskForm";
 
@@ -64,8 +66,10 @@ export default function TaskLogForm({
     } catch (error) {
       await showToast({
         style: Toast.Style.Failure,
-        title: "Unable to save work log",
-        message: error instanceof Error ? error.message : undefined,
+        title: isRaylogCorruptionError(error)
+          ? "Raylog database is corrupted"
+          : "Unable to save work log",
+        message: getRaylogErrorMessage(error, "Unable to save work log."),
       });
     }
   }

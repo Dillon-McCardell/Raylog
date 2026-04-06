@@ -11,7 +11,11 @@ import {
 import path from "path";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDueSoonDays, getEnabledListMetadata } from "../lib/config";
-import { RaylogRepository } from "../lib/storage";
+import {
+  getRaylogErrorMessage,
+  isRaylogCorruptionError,
+  RaylogRepository,
+} from "../lib/storage";
 import {
   filterTasks,
   getTaskFilterLabel,
@@ -74,9 +78,7 @@ export default function TaskListScreen({
       setLoadError(undefined);
     } catch (error) {
       setTasks([]);
-      setLoadError(
-        error instanceof Error ? error.message : "Unable to load tasks.",
-      );
+      setLoadError(getRaylogErrorMessage(error, "Unable to load tasks."));
     } finally {
       setIsLoading(false);
     }
@@ -95,8 +97,13 @@ export default function TaskListScreen({
       } catch (error) {
         await showToast({
           style: Toast.Style.Failure,
-          title: "Unable to save task view",
-          message: error instanceof Error ? error.message : undefined,
+          title: isRaylogCorruptionError(error)
+            ? "Raylog database is corrupted"
+            : "Unable to save task view",
+          message: getRaylogErrorMessage(
+            error,
+            "Unable to save the selected task view.",
+          ),
         });
       }
     },
@@ -327,8 +334,13 @@ function TaskItem({
       } catch (error) {
         await showToast({
           style: Toast.Style.Failure,
-          title: `Unable to ${title.toLowerCase()}`,
-          message: error instanceof Error ? error.message : undefined,
+          title: isRaylogCorruptionError(error)
+            ? "Raylog database is corrupted"
+            : `Unable to ${title.toLowerCase()}`,
+          message: getRaylogErrorMessage(
+            error,
+            `Unable to ${title.toLowerCase()}.`,
+          ),
         });
       }
     },

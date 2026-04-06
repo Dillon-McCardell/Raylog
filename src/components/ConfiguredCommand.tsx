@@ -2,6 +2,7 @@ import {
   Action,
   ActionPanel,
   Alert,
+  Icon,
   List,
   Toast,
   confirmAlert,
@@ -16,6 +17,8 @@ import { getConfiguredStorageNotePath } from "../lib/config";
 import { RAYLOG_SCHEMA_VERSION } from "../lib/constants";
 import {
   ensureStorageNote,
+  getRaylogErrorMessage,
+  isRaylogCorruptionError,
   RaylogInitializationRequiredError,
   RaylogParseError,
   RaylogSchemaError,
@@ -35,6 +38,7 @@ export default function ConfiguredCommand({
   const [canReset, setCanReset] = useState(false);
   const [canGenerateDatabase, setCanGenerateDatabase] = useState(false);
   const [isSchemaError, setIsSchemaError] = useState(false);
+  const [isCorruptedStorage, setIsCorruptedStorage] = useState(false);
   const [currentSchemaVersion, setCurrentSchemaVersion] = useState<
     number | undefined
   >();
@@ -49,6 +53,7 @@ export default function ConfiguredCommand({
     setCanReset(false);
     setCanGenerateDatabase(false);
     setIsSchemaError(false);
+    setIsCorruptedStorage(false);
     setCurrentSchemaVersion(undefined);
 
     if (!configuredNotePath) {
@@ -65,9 +70,7 @@ export default function ConfiguredCommand({
     } catch (error) {
       setNotePath(undefined);
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to load Raylog storage.",
+        getRaylogErrorMessage(error, "Unable to load Raylog storage."),
       );
       setCanGenerateDatabase(
         error instanceof RaylogInitializationRequiredError,
@@ -76,6 +79,7 @@ export default function ConfiguredCommand({
         error instanceof RaylogParseError || error instanceof RaylogSchemaError,
       );
       setIsSchemaError(error instanceof RaylogSchemaError);
+      setIsCorruptedStorage(isRaylogCorruptionError(error));
       if (error instanceof RaylogSchemaError) {
         setCurrentSchemaVersion(
           await readSchemaVersionFromNote(configuredNotePath),
@@ -105,7 +109,10 @@ export default function ConfiguredCommand({
       await showToast({
         style: Toast.Style.Failure,
         title: "Unable to reset storage",
-        message: error instanceof Error ? error.message : undefined,
+        message: getRaylogErrorMessage(
+          error,
+          "Unable to reset the storage note.",
+        ),
       });
     }
   }
@@ -142,7 +149,10 @@ export default function ConfiguredCommand({
       await showToast({
         style: Toast.Style.Failure,
         title: "Unable to generate database",
-        message: error instanceof Error ? error.message : undefined,
+        message: getRaylogErrorMessage(
+          error,
+          "Unable to generate the task database.",
+        ),
       });
     }
   }
@@ -155,11 +165,17 @@ export default function ConfiguredCommand({
     return (
       <List>
         <List.EmptyView
-          icon={path.join(environment.assetsPath, "icon-empty-view.png")}
+          icon={
+            isCorruptedStorage || isSchemaError
+              ? Icon.Warning
+              : path.join(environment.assetsPath, "icon-empty-view.png")
+          }
           title={
             isSchemaError
               ? `Schema v${currentSchemaVersion ?? "?"} -> v${RAYLOG_SCHEMA_VERSION} Required`
-              : "Set Up Raylog Storage"
+              : isCorruptedStorage
+                ? "Corrupted Raylog Database"
+                : "Set Up Raylog Storage"
           }
           description={buildEmptyStateDescription({
             message:
