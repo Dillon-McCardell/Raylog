@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { validateWorkLogInput } from "../lib/tasks";
 import { RaylogRepository } from "../lib/storage";
 import type { TaskLogStatusBehavior, TaskRecord } from "../lib/types";
+import TaskForm from "./TaskForm";
 
 interface TaskLogFormProps {
   notePath: string;
@@ -78,6 +79,21 @@ export default function TaskLogForm({
             title="Save Log"
             icon={Icon.Check}
             onSubmit={handleSubmit}
+          />
+          <Action.Push
+            title="Add Task"
+            icon={Icon.Plus}
+            shortcut={{ modifiers: ["cmd"], key: "n" }}
+            target={
+              <TaskForm
+                notePath={notePath}
+                onDidSave={async () => {
+                  if (onDidChangeTask) {
+                    await onDidChangeTask();
+                  }
+                }}
+              />
+            }
           />
         </ActionPanel>
       }

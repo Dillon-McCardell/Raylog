@@ -193,6 +193,21 @@ export default function TaskDetailView({
               }
             />
             <Action.Push
+              title="Add Task"
+              icon={Icon.Plus}
+              shortcut={{ modifiers: ["cmd"], key: "n" }}
+              target={
+                <TaskForm
+                  notePath={notePath}
+                  onDidSave={async () => {
+                    if (onDidChangeTask) {
+                      await onDidChangeTask();
+                    }
+                  }}
+                />
+              }
+            />
+            <Action.Push
               title="Edit Task"
               icon={Icon.Pencil}
               shortcut={{ modifiers: ["cmd"], key: "e" }}
