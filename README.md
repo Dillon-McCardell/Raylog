@@ -77,7 +77,7 @@ Raylog manages a JSON block inside your configured markdown note.
 
 ```json
 {
-  "schemaVersion": 5,
+  "schemaVersion": 1,
   "tasks": []
 }
 ```
@@ -89,7 +89,7 @@ Markdown outside the managed block is preserved. The managed block is intended t
 be written by Raylog, not edited manually.
 
 If the storage block is malformed or from an old schema, Raylog will prompt you
-to reset the note to a fresh v5 document.
+to reset the note to a fresh v1 document.
 
 ## Configuration
 

@@ -68,7 +68,7 @@ test("implementation still matches the documented key shortcuts", async () => {
     /title="Complete Task"[\s\S]*shortcut=\{\{ modifiers: \["cmd", "shift"\], key: "c" \}\}/,
   );
 
-  assert.match(readme, /"schemaVersion": 5/);
+  assert.match(readme, /"schemaVersion": 1/);
 });
 
 async function readWorkspaceFile(relativePath: string): Promise<string> {

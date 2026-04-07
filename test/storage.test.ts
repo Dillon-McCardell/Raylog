@@ -24,9 +24,9 @@ test("flags an empty markdown note for initialization", async () => {
   );
 });
 
-test("parses a valid v5 markdown note with a Raylog block", () => {
+test("parses a valid v1 markdown note with a Raylog block", () => {
   const markdown = mergeRaylogMarkdown("# Notes\n", {
-    schemaVersion: 5,
+    schemaVersion: 1,
     tasks: [
       {
         id: "task-1",
@@ -61,7 +61,7 @@ test("throws on invalid JSON inside the Raylog block", () => {
         `<!-- raylog:start -->
 \`\`\`json
 {
-  "schemaVersion": 5,
+  "schemaVersion": 1,
   nope,
   "tasks": []
 }
@@ -84,7 +84,7 @@ test("describes malformed task data inside the Raylog block", () => {
     () => {
       parseRaylogMarkdown(
         mergeRaylogMarkdown("", {
-          schemaVersion: 5,
+          schemaVersion: 1,
           tasks: [
             {
               id: "task-1",
@@ -133,7 +133,7 @@ test("describes unsupported schema versions clearly", () => {
     (error: unknown) => {
       assert.ok(error instanceof RaylogSchemaError);
       assert.match(error.message, /unsupported schema version/i);
-      assert.match(error.message, /Expected schema v5, found schema v4/i);
+      assert.match(error.message, /Expected schema v1, found schema v4/i);
       return true;
     },
   );
@@ -250,7 +250,7 @@ test("creates, updates, and deletes work logs without clobbering markdown", asyn
   assert.match(finalMarkdown, /Context above\./);
 });
 
-test("resets malformed storage to a fresh v5 document", async () => {
+test("resets malformed storage to a fresh v1 document", async () => {
   const notePath = await createTempMarkdownFile(
     "<!-- raylog:start -->\n```json\n{bad-json}\n```\n<!-- raylog:end -->\n",
   );
@@ -259,7 +259,7 @@ test("resets malformed storage to a fresh v5 document", async () => {
   const markdown = await fs.promises.readFile(notePath, "utf8");
   const parsed = parseRaylogMarkdown(markdown);
 
-  assert.equal(parsed.document.schemaVersion, 5);
+  assert.equal(parsed.document.schemaVersion, 1);
   assert.deepEqual(parsed.document.tasks, []);
 });
 
@@ -270,7 +270,7 @@ test("creates a fresh database for an empty markdown note on reset", async () =>
   const markdown = await fs.promises.readFile(notePath, "utf8");
   const parsed = parseRaylogMarkdown(markdown);
 
-  assert.equal(parsed.document.schemaVersion, 5);
+  assert.equal(parsed.document.schemaVersion, 1);
   assert.deepEqual(parsed.document.tasks, []);
 });
 
@@ -301,7 +301,7 @@ test("defaults to all for current view state until a filter is explicitly select
     `<!-- raylog:start -->
 \`\`\`json
 {
-  "schemaVersion": 5,
+  "schemaVersion": 1,
   "tasks": [],
   "viewState": {
     "listTasksFilter": "open"
@@ -316,9 +316,9 @@ test("defaults to all for current view state until a filter is explicitly select
   assert.equal(await repository.getListTasksFilter(), "all");
 });
 
-test("rejects v5 documents with blocked tasks", () => {
+test("rejects v1 documents with blocked tasks", () => {
   const markdown = mergeRaylogMarkdown("", {
-    schemaVersion: 5,
+    schemaVersion: 1,
     tasks: [
       {
         id: "task-1",
@@ -342,9 +342,9 @@ test("rejects v5 documents with blocked tasks", () => {
   assert.throws(() => parseRaylogMarkdown(markdown), RaylogParseError);
 });
 
-test("rejects v5 documents with dependency fields", () => {
+test("rejects v1 documents with dependency fields", () => {
   const markdown = mergeRaylogMarkdown("", {
-    schemaVersion: 5,
+    schemaVersion: 1,
     tasks: [
       {
         id: "task-1",
@@ -369,9 +369,9 @@ test("rejects v5 documents with dependency fields", () => {
   assert.throws(() => parseRaylogMarkdown(markdown), RaylogParseError);
 });
 
-test("rejects v5 documents with malformed work logs", () => {
+test("rejects v1 documents with malformed work logs", () => {
   const markdown = mergeRaylogMarkdown("", {
-    schemaVersion: 5,
+    schemaVersion: 1,
     tasks: [
       {
         id: "task-1",
