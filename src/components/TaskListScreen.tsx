@@ -1,9 +1,11 @@
 import {
   Action,
   ActionPanel,
+  Alert,
   Icon,
   List,
   Toast,
+  confirmAlert,
   environment,
   openExtensionPreferences,
   showToast,
@@ -347,6 +349,38 @@ function TaskItem({
     [onReload],
   );
 
+  const handleDelete = useCallback(async () => {
+    const confirmed = await confirmAlert({
+      title: "Delete task?",
+      message: "This permanently removes the task from the storage note.",
+      primaryAction: {
+        title: "Delete Task",
+        style: Alert.ActionStyle.Destructive,
+      },
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await repository.deleteTask(task.id);
+      await showToast({
+        style: Toast.Style.Success,
+        title: "Task deleted",
+      });
+      await onReload();
+    } catch (error) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: isRaylogCorruptionError(error)
+          ? "Raylog database is corrupted"
+          : "Unable to delete task",
+        message: getRaylogErrorMessage(error, "Unable to delete task."),
+      });
+    }
+  }, [onReload, repository, task.id]);
+
   const taskView = (
     <TaskDetailView
       notePath={notePath}
@@ -457,6 +491,13 @@ function TaskItem({
                 shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
               />
             )}
+            <Action
+              title="Delete Task"
+              icon={Icon.Trash}
+              style={Action.Style.Destructive}
+              onAction={handleDelete}
+              shortcut={{ modifiers: ["ctrl"], key: "x" }}
+            />
           </ActionPanel.Section>
           {!hideFilters && (
             <TaskFilterActions onSelectFilter={onSelectFilter} />
