@@ -549,16 +549,17 @@ function matchesTaskSearch(
 }
 
 function buildTaskDetailMarkdown(task: TaskRecord): string {
+  const topSpacer = "⁠";
   const safeHeader = escapeMarkdown(task.header);
   const body = task.body.trim();
   const createdLabel = `◷ Created ${escapeMarkdown(
-    new Date(task.createdAt).toLocaleString(),
+    formatCompactDateTime(task.createdAt),
   )}`;
   const wasEdited =
     new Date(task.updatedAt).getTime() > new Date(task.createdAt).getTime();
   const taskTimeline = wasEdited
     ? `\`${createdLabel} -> ✎ Edited ${escapeMarkdown(
-        new Date(task.updatedAt).toLocaleString(),
+        formatCompactDateTime(task.updatedAt),
       )}\``
     : `\`${createdLabel}\``;
   const workLogSections = task.workLogs
@@ -582,17 +583,17 @@ function buildTaskDetailMarkdown(task: TaskRecord): string {
 
   if (!workLogSections) {
     if (!body) {
-      return `\n${taskTimeline}\n# ${safeHeader}`;
+      return `${topSpacer}\n${taskTimeline}\n# ${safeHeader}`;
     }
 
-    return `\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}`;
+    return `${topSpacer}\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}`;
   }
 
   if (!body) {
-    return `\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${workLogSections}`;
+    return `${topSpacer}\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${workLogSections}`;
   }
 
-  return `\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}\n\n---\n\n${workLogSections}`;
+  return `${topSpacer}\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}\n\n---\n\n${workLogSections}`;
 }
 
 function escapeMarkdown(value: string): string {
