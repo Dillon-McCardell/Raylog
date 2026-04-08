@@ -279,7 +279,7 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
             title="🗂 Work Logs"
             text={
               values.workLogs.length > 0
-                ? "Edit existing work logs below. Focus a work log field to enable Cmd+D deletion."
+                ? "Edit existing work logs below. Focus a work log field to enable ⌘D deletion."
                 : "No work logs yet."
             }
           />
@@ -295,6 +295,11 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
               enableMarkdown
               value={workLog.body}
               onFocus={() => setFocusedWorkLogId(workLog.id)}
+              onBlur={() =>
+                setFocusedWorkLogId((currentValue) =>
+                  currentValue === workLog.id ? undefined : currentValue,
+                )
+              }
               onChange={(newValue) =>
                 setValues((currentValues) => ({
                   ...currentValues,
