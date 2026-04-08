@@ -10,9 +10,17 @@ below so the documented flow stays aligned with the extension behavior.
 flowchart TD
     A["Raylog"] --> B["List Tasks command"]
     A --> C["Add Task command"]
+    A --> M["Refresh Menu Bar command"]
+
+    B --> Z["Storage note configured and valid?"]
+    C --> Z
+    Z -->|"No"| Z1["Setup / reset empty state"]
+    Z1 -->|"Open Extension Preferences"| Z
+    Z1 -->|"Generate New Task Database"| Z
+    Z1 -->|"Reset Storage Note"| Z
 
     subgraph LIST["List Tasks"]
-        B --> B1["Task list with detail pane"]
+        Z -->|"Yes, launch List Tasks"| B1["Task list with detail pane"]
         B1 -->|"Enter"| E["View Task window"]
         B1 -->|"Cmd+L"| N["Log Work form"]
         B1 -->|"Cmd+N"| F["Add Task form"]
@@ -33,7 +41,7 @@ flowchart TD
     end
 
     subgraph ADD["Add Task"]
-        C --> C1["Standalone Add Task form"]
+        Z -->|"Yes, launch Add Task"| C1["Standalone Add Task form"]
         C1 -->|"Save"| C2["Pop to root"]
     end
 
@@ -61,5 +69,17 @@ flowchart TD
         R --> E1
         S --> E1
         U --> E1
+    end
+
+    subgraph MENU["Refresh Menu Bar"]
+        M --> M1["Current task in menu bar"]
+        M -->|"No storage note"| M3["Set Up Raylog menu bar state"]
+        M1 -->|"Click current task"| E1
+        M1 -->|"Complete Current Task"| M2["Complete current task"]
+        M1 -->|"Click task in Next 5 Tasks"| E1
+        M1 -->|"Open Task List"| B1
+
+        M2 --> M1
+        M3 -->|"Open Extension Preferences"| Z
     end
 ```

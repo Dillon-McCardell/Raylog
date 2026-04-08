@@ -191,6 +191,38 @@ export function getTaskListIndicators(
   return indicators;
 }
 
+export function getMenuBarTask(tasks: TaskRecord[]): TaskRecord | undefined {
+  return getMenuBarTasks(tasks, 1)[0];
+}
+
+export function getMenuBarTasks(tasks: TaskRecord[], limit = 5): TaskRecord[] {
+  const visibleTasks = tasks.filter((task) => isActiveTaskStatus(task.status));
+  if (visibleTasks.length === 0 || limit <= 0) {
+    return [];
+  }
+
+  if (!visibleTasks.some((task) => task.dueDate !== null)) {
+    return sortTasks(visibleTasks).slice(0, limit);
+  }
+
+  return [...visibleTasks]
+    .sort((left, right) => {
+      if (left.dueDate && right.dueDate) {
+        const dueDateComparison = left.dueDate.localeCompare(right.dueDate);
+        if (dueDateComparison !== 0) {
+          return dueDateComparison;
+        }
+      } else if (left.dueDate) {
+        return -1;
+      } else if (right.dueDate) {
+        return 1;
+      }
+
+      return compareTasks(left, right);
+    })
+    .slice(0, limit);
+}
+
 function compareTasks(left: TaskRecord, right: TaskRecord): number {
   if (left.status !== right.status) {
     return (

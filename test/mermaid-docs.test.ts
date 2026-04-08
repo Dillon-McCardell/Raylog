@@ -12,7 +12,16 @@ test("development docs include the complete validated command flow", async () =>
 
   assertEdge(parsed, "Raylog", "", "List Tasks command");
   assertEdge(parsed, "Raylog", "", "Add Task command");
+  assertEdge(parsed, "Raylog", "", "Refresh Menu Bar command");
+  assertEdge(parsed, "List Tasks command", "", "Storage note configured and valid?");
+  assertEdge(parsed, "Add Task command", "", "Storage note configured and valid?");
+  assertEdge(parsed, "Storage note configured and valid?", "No", "Setup / reset empty state");
+  assertEdge(parsed, "Setup / reset empty state", "Open Extension Preferences", "Storage note configured and valid?");
+  assertEdge(parsed, "Setup / reset empty state", "Generate New Task Database", "Storage note configured and valid?");
+  assertEdge(parsed, "Setup / reset empty state", "Reset Storage Note", "Storage note configured and valid?");
 
+  assertEdge(parsed, "Storage note configured and valid?", "Yes, launch List Tasks", "Task list with detail pane");
+  assertEdge(parsed, "Storage note configured and valid?", "Yes, launch Add Task", "Standalone Add Task form");
   assertEdge(parsed, "Task list with detail pane", "Enter", "View Task window");
   assertEdge(parsed, "Task list with detail pane", "Cmd+L", "Log Work form");
   assertEdge(parsed, "Task list with detail pane", "Cmd+Shift+C", "Complete selected task");
@@ -22,6 +31,12 @@ test("development docs include the complete validated command flow", async () =>
   assertEdge(parsed, "Full-window task detail", "Cmd+Shift+C", "Complete task");
   assertEdge(parsed, "Log Work form", "Save Log", "Full-window task detail");
   assertEdge(parsed, "Full-window task detail", "Delete Task", "Delete task");
+  assertEdge(parsed, "Current task in menu bar", "Click current task", "Full-window task detail");
+  assertEdge(parsed, "Current task in menu bar", "Click task in Next 5 Tasks", "Full-window task detail");
+  assertEdge(parsed, "Current task in menu bar", "Open Task List", "Task list with detail pane");
+  assertEdge(parsed, "Current task in menu bar", "Complete Current Task", "Complete current task");
+  assertEdge(parsed, "Refresh Menu Bar command", "No storage note", "Set Up Raylog menu bar state");
+  assertEdge(parsed, "Set Up Raylog menu bar state", "Open Extension Preferences", "Storage note configured and valid?");
 
   assert.ok(!diagram.includes("Cmd+Shift+O"));
   assert.ok(!diagram.includes("Log Task command"));
@@ -35,11 +50,20 @@ test("readme includes the simplified user-facing window flow", async () => {
 
   assertEdge(parsed, "Raylog", "", "List Tasks");
   assertEdge(parsed, "Raylog", "", "Add Task");
+  assertEdge(parsed, "Raylog", "", "Refresh Menu Bar");
+  assertEdge(parsed, "List Tasks", "", "Storage note valid");
+  assertEdge(parsed, "Add Task", "", "Storage note valid");
+  assertEdge(parsed, "Storage note valid", "No", "Setup or reset state");
+  assertEdge(parsed, "Storage note valid", "Yes", "List Tasks");
 
   assertEdge(parsed, "List Tasks", "Enter", "View Task");
   assertEdge(parsed, "List Tasks", "Cmd+L", "Log Work Form");
   assertEdge(parsed, "View Task", "Default action: Log Work", "Log Work Form");
   assertEdge(parsed, "View Task", "Cmd+Shift+C", "Complete Task");
+  assertEdge(parsed, "Refresh Menu Bar", "Click current or next task", "View Task");
+  assertEdge(parsed, "Refresh Menu Bar", "Open Task List", "List Tasks");
+  assertEdge(parsed, "Refresh Menu Bar", "Complete Current Task", "Complete Task");
+  assertEdge(parsed, "Refresh Menu Bar", "No storage note", "Setup or reset state");
 
   assert.ok(!diagram.includes("Cmd+Shift+O"));
   assert.ok(!diagram.includes("Log Task"));

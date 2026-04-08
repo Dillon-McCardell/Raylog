@@ -18,6 +18,23 @@
     "url": "https://github.com/Dillon-McCardell/Raylog/issues"
   },
   "homepage": "https://github.com/Dillon-McCardell/Raylog/blob/main/README.md",
+  "keywords": [
+    "tasks",
+    "notes",
+    "markdown",
+    "obsidian",
+    "productivity"
+  ],
+  "preferences": [
+    {
+      "name": "storageNotePath",
+      "type": "file",
+      "required": true,
+      "title": "Storage Note",
+      "description": "Markdown note used for Raylog storage.",
+      "label": "Storage Note"
+    }
+  ],
   "commands": [
     {
       "name": "list-tasks",
@@ -78,27 +95,18 @@
       ]
     },
     {
+      "name": "menu-bar-task",
+      "title": "Refresh Menu Bar",
+      "description": "Show the next Raylog task in the macOS menu bar.",
+      "mode": "menu-bar",
+      "hidden": true,
+      "interval": "1m"
+    },
+    {
       "name": "add-task",
       "title": "Add Task",
       "description": "Capture a new Raylog task with dates and status.",
       "mode": "view"
-    }
-  ],
-  "keywords": [
-    "tasks",
-    "notes",
-    "markdown",
-    "obsidian",
-    "productivity"
-  ],
-  "preferences": [
-    {
-      "name": "storageNotePath",
-      "type": "file",
-      "required": true,
-      "title": "Storage Note",
-      "description": "Markdown note used for Raylog storage.",
-      "label": "Storage Note"
     }
   ],
   "dependencies": {

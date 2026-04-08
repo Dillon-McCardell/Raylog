@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  getMenuBarTasks,
   filterTasks,
+  getMenuBarTask,
   getTaskListIndicators,
   validateTaskInput,
 } from "../src/lib/tasks";
@@ -229,6 +231,92 @@ test("omits disabled metadata types", () => {
   );
 
   assert.deepEqual(indicators.map((indicator) => indicator.text), ["1d"]);
+});
+
+test("menu bar task uses the earliest due date among active tasks", () => {
+  const tasks = [
+    createTask({
+      id: "archived",
+      status: "archived",
+      dueDate: "2026-04-01T00:00:00.000Z",
+    }),
+    createTask({
+      id: "later",
+      status: "open",
+      dueDate: "2026-04-05T00:00:00.000Z",
+    }),
+    createTask({
+      id: "soonest",
+      status: "done",
+      dueDate: "2026-04-02T00:00:00.000Z",
+    }),
+  ];
+
+  assert.equal(getMenuBarTask(tasks)?.id, "later");
+});
+
+test("menu bar task falls back to the first active task when none have due dates", () => {
+  const tasks = [
+    createTask({ id: "archived", status: "archived" }),
+    createTask({ id: "done", status: "done", dueDate: null }),
+    createTask({ id: "first", status: "open", dueDate: null }),
+    createTask({ id: "second", status: "in_progress", dueDate: null }),
+  ];
+
+  assert.equal(getMenuBarTask(tasks)?.id, "first");
+});
+
+test("menu bar tasks sort by due date when at least one due date exists", () => {
+  const tasks = [
+    createTask({
+      id: "later-due",
+      status: "open",
+      dueDate: "2026-04-05T00:00:00.000Z",
+      updatedAt: "2026-04-02T00:00:00.000Z",
+    }),
+    createTask({
+      id: "no-due",
+      status: "open",
+      dueDate: null,
+      updatedAt: "2026-04-03T00:00:00.000Z",
+    }),
+    createTask({
+      id: "soon-due",
+      status: "in_progress",
+      dueDate: "2026-04-02T00:00:00.000Z",
+      updatedAt: "2026-04-01T00:00:00.000Z",
+    }),
+  ];
+
+  assert.deepEqual(
+    getMenuBarTasks(tasks).map((task) => task.id),
+    ["soon-due", "later-due", "no-due"],
+  );
+});
+
+test("menu bar tasks fall back to task list ordering when no due dates exist", () => {
+  const tasks = [
+    createTask({
+      id: "done",
+      status: "done",
+      updatedAt: "2026-04-01T00:00:00.000Z",
+    }),
+    createTask({
+      id: "open",
+      status: "open",
+      updatedAt: "2026-04-02T00:00:00.000Z",
+    }),
+    createTask({
+      id: "in-progress",
+      status: "in_progress",
+      updatedAt: "2026-04-03T00:00:00.000Z",
+    }),
+  ];
+
+  assert.deepEqual(
+    getMenuBarTasks(tasks).map((task) => task.id),
+    ["open", "in-progress"],
+  );
 });
 
 function createTask(overrides: Partial<TaskRecord>): TaskRecord {

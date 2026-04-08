@@ -38,6 +38,7 @@ import TaskLogForm from "./TaskLogForm";
 interface TaskListScreenProps {
   notePath: string;
   taskIds?: string[];
+  selectedTaskId?: string;
   navigationTitle?: string;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -48,6 +49,7 @@ interface TaskListScreenProps {
 export default function TaskListScreen({
   notePath,
   taskIds,
+  selectedTaskId,
   navigationTitle = "Raylog Tasks",
   emptyTitle,
   emptyDescription,
@@ -62,6 +64,7 @@ export default function TaskListScreen({
   const [searchText, setSearchText] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<TaskViewFilter>("all");
   const [loadError, setLoadError] = useState<string>();
+  const effectiveSelectedFilter = selectedTaskId ? "all" : selectedFilter;
 
   const loadTasks = useCallback(async () => {
     const nextTasks = await repository.listTasks();
@@ -73,7 +76,9 @@ export default function TaskListScreen({
     try {
       const [nextTasks, nextFilter] = await Promise.all([
         repository.listTasks(),
-        repository.getListTasksFilter(),
+        selectedTaskId
+          ? Promise.resolve<TaskViewFilter>("all")
+          : repository.getListTasksFilter(),
       ]);
       setTasks(nextTasks);
       setSelectedFilter(nextFilter);
@@ -84,7 +89,7 @@ export default function TaskListScreen({
     } finally {
       setIsLoading(false);
     }
-  }, [repository]);
+  }, [repository, selectedTaskId]);
 
   useEffect(() => {
     void loadInitialState();
@@ -133,8 +138,13 @@ export default function TaskListScreen({
       });
     }
 
-    return filterTasks(scopedTasks, selectedFilter, searchText, dueSoonDays);
-  }, [dueSoonDays, scopedTasks, searchText, selectedFilter, taskIds]);
+    return filterTasks(
+      scopedTasks,
+      effectiveSelectedFilter,
+      searchText,
+      dueSoonDays,
+    );
+  }, [dueSoonDays, effectiveSelectedFilter, scopedTasks, searchText, taskIds]);
 
   const hasAnyTasks = scopedTasks.length > 0;
   const hasSearchOrFilter = searchText.trim().length > 0 || hasAnyTasks;
@@ -143,6 +153,7 @@ export default function TaskListScreen({
     <List
       isLoading={isLoading}
       isShowingDetail={filteredTasks.length > 0}
+      selectedItemId={selectedTaskId}
       navigationTitle={navigationTitle}
       searchBarPlaceholder="Search tasks by header or body"
       onSearchTextChange={setSearchText}
@@ -150,7 +161,7 @@ export default function TaskListScreen({
       searchBarAccessory={
         hideFilters ? undefined : (
           <TaskFilterDropdown
-            selectedFilter={selectedFilter}
+            selectedFilter={effectiveSelectedFilter}
             onSelectFilter={handleSelectFilter}
           />
         )
@@ -401,6 +412,7 @@ function TaskItem({
 
   return (
     <List.Item
+      id={task.id}
       icon={getTaskIcon(task.status)}
       title={task.header}
       accessories={

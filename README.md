@@ -11,6 +11,7 @@ one markdown file, but the workflow is built entirely around Raycast.
 - Status-driven task lifecycle: `Open`, `In Progress`, `Done`, `Archived`
 - Filtered list views for focused review instead of one long mixed list
 - Urgency-aware ordering for active work
+- Optional macOS menu bar task view for active work
 - Configurable list metadata for due and start countdown indicators
 - Quick actions for start, complete, reopen, archive, and delete
 - Structured markdown-backed storage with resettable setup
@@ -39,15 +40,40 @@ Use **Add Task** to create a task with:
 - **Due Date**
 - **Start Date**
 
+### Refresh Menu Bar
+
+Use **Refresh Menu Bar** to show your current Raylog task in the macOS menu bar.
+
+- This feature is off by default until you enable the menu bar command in Raycast
+- It only shows active tasks (`Open` and `In Progress`)
+- Clicking the current task or a task in the `Next 5 Tasks` section opens that task
+- You can complete the current task directly from the menu bar dropdown
+
+To enable it:
+
+1. Open Raycast and run `Refresh Menu Bar`
+2. Activate the command in Raycast's built-in menu bar controls if prompted
+
+To disable it:
+
+1. Open Raycast settings for `Refresh Menu Bar`
+2. Use Raycast's built-in `Deactivate` control for that menu bar command
+
 ### Window Flow
 
-Raylog revolves around two entry commands and one unified full-task window for
-reading, editing, and logging work.
+Raylog revolves around three entry commands plus a shared storage/setup gate
+before the list and add-task flows can render.
 
 ```mermaid
 flowchart TD
     A["Raylog"] --> B["List Tasks"]
     A --> C["Add Task"]
+    A --> M["Refresh Menu Bar"]
+
+    B --> Z["Storage note valid"]
+    C --> Z
+    Z -->|"No"| X["Setup or reset state"]
+    Z -->|"Yes"| B
 
     B -->|"Enter"| E["View Task"]
     B -->|"Cmd+L"| I["Log Work Form"]
@@ -66,6 +92,11 @@ flowchart TD
     H --> B
     J --> E
     K --> E
+
+    M -->|"Click current or next task"| E
+    M -->|"Open Task List"| B
+    M -->|"Complete Current Task"| J
+    M -->|"No storage note"| X
 ```
 
 ## Storage Model
