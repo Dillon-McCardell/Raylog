@@ -22,7 +22,7 @@ flowchart TD
     subgraph LIST["List Tasks"]
         Z -->|"Yes, launch List Tasks"| B1["Task list with detail pane"]
         B1 -->|"Enter"| E["View Task window"]
-        B1 -->|"Cmd+L"| N["Log Work form"]
+        B1 -->|"Cmd+L"| N["Edit Task form (new log focused)"]
         B1 -->|"Cmd+N"| F["Add Task form"]
         B1 -->|"Cmd+E"| G["Edit Task form"]
         B1 -->|"Cmd+Shift+C"| I["Complete selected task"]
@@ -56,7 +56,7 @@ flowchart TD
         E1 -->|"Delete Task"| U["Delete task"]
         E1 -->|"Reload"| E1
 
-        N -->|"Save Log"| E1
+        N -->|"Save"| E1
         N -->|"Status behavior: auto-start or keep or prompt"| E1
 
         O -->|"Save"| E1

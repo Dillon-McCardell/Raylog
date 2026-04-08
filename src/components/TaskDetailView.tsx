@@ -19,7 +19,6 @@ import {
 } from "../lib/storage";
 import type { TaskLogStatusBehavior, TaskRecord } from "../lib/types";
 import TaskForm from "./TaskForm";
-import TaskLogForm from "./TaskLogForm";
 
 interface TaskDetailViewProps {
   notePath: string;
@@ -189,12 +188,17 @@ export default function TaskDetailView({
               title="Log Work"
               icon={Icon.Pencil}
               target={
-                <TaskLogForm
+                <TaskForm
                   notePath={notePath}
                   task={task}
+                  initialFocus="new_work_log"
                   statusBehavior={statusBehavior}
-                  onDidSave={loadTask}
-                  onDidChangeTask={onDidChangeTask}
+                  onDidSave={async () => {
+                    await loadTask();
+                    if (onDidChangeTask) {
+                      await onDidChangeTask();
+                    }
+                  }}
                 />
               }
             />
@@ -221,6 +225,7 @@ export default function TaskDetailView({
                 <TaskForm
                   notePath={notePath}
                   task={task}
+                  statusBehavior={statusBehavior}
                   onDidSave={async () => {
                     await loadTask();
                     if (onDidChangeTask) {

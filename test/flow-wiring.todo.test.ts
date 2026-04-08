@@ -20,15 +20,15 @@ import type { ReactElement } from "react";
 
 test.todo("TaskListScreen Enter opens TaskDetailView for the selected task");
 
-test.todo("TaskListScreen Cmd+L opens TaskLogForm for the selected task");
+test.todo("TaskListScreen Cmd+L opens TaskForm focused on the new log field");
 
 test.todo("TaskListScreen Cmd+E opens TaskForm for the selected task");
 
-test.todo("TaskDetailView default action opens TaskLogForm");
+test.todo("TaskDetailView default action opens TaskForm focused on the new log field");
 
 test.todo("TaskDetailView Cmd+Shift+C completes the task and reloads in place");
 
-test.todo("TaskLogForm save triggers parent reload callbacks and returns to the previous screen");
+test.todo("TaskForm save from log-focused entry triggers parent reload callbacks and returns to the previous screen");
 
 test.todo("TaskForm save returns to the originating screen after editing from List Tasks");
 
@@ -96,7 +96,7 @@ function renderTaskDetailViewForFlow(): ReactElement {
  */
 function renderTaskLogFormForFlow(): ReactElement {
   return {
-    type: "TaskLogForm",
+    type: "TaskForm",
     props: {
       notePath: "/tmp/raylog-test.md",
       task: {
@@ -111,6 +111,7 @@ function renderTaskLogFormForFlow(): ReactElement {
         createdAt: "2026-04-03T00:00:00.000Z",
         updatedAt: "2026-04-03T00:00:00.000Z",
       },
+      initialFocus: "new_work_log",
       statusBehavior: "auto_start",
       onDidSave: async () => undefined,
     },

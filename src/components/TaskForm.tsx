@@ -17,8 +17,17 @@ import {
   isRaylogCorruptionError,
   RaylogRepository,
 } from "../lib/storage";
-import { getTaskStatusLabel, validateTaskInput } from "../lib/tasks";
-import type { TaskRecord, TaskStatus, TaskWorkLogRecord } from "../lib/types";
+import {
+  getTaskStatusLabel,
+  validateTaskInput,
+  validateWorkLogInput,
+} from "../lib/tasks";
+import type {
+  TaskLogStatusBehavior,
+  TaskRecord,
+  TaskStatus,
+  TaskWorkLogRecord,
+} from "../lib/types";
 
 interface TaskFormValues {
   header: string;
@@ -29,13 +38,23 @@ interface TaskFormValues {
   workLogs: TaskWorkLogRecord[];
 }
 
+type TaskFormInitialFocus = "header" | "new_work_log";
+
 interface TaskFormProps {
   notePath: string;
   task?: TaskRecord;
   onDidSave?: () => Promise<void> | void;
+  initialFocus?: TaskFormInitialFocus;
+  statusBehavior?: TaskLogStatusBehavior;
 }
 
-export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
+export default function TaskForm({
+  notePath,
+  task,
+  onDidSave,
+  initialFocus = "header",
+  statusBehavior = "auto_start",
+}: TaskFormProps) {
   const { pop } = useNavigation();
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const isEditing = Boolean(task);
@@ -48,9 +67,13 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
     workLogs: task?.workLogs ?? [],
   });
   const [headerError, setHeaderError] = useState<string>();
+  const [newWorkLogEntry, setNewWorkLogEntry] = useState("");
   const [focusedWorkLogId, setFocusedWorkLogId] = useState<string>();
   const [pendingFocusWorkLogId, setPendingFocusWorkLogId] = useState<string>();
+  const headerRef = useRef<Form.TextField | null>(null);
+  const newWorkLogRef = useRef<Form.TextArea | null>(null);
   const workLogRefs = useRef<Record<string, Form.TextArea | null>>({});
+  const hasAppliedInitialFocus = useRef(false);
 
   useEffect(() => {
     if (!pendingFocusWorkLogId) {
@@ -62,7 +85,26 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
     setPendingFocusWorkLogId(undefined);
   }, [pendingFocusWorkLogId, values.workLogs]);
 
+  useEffect(() => {
+    if (hasAppliedInitialFocus.current) {
+      return;
+    }
+
+    const focusTarget =
+      initialFocus === "new_work_log"
+        ? newWorkLogRef.current
+        : headerRef.current;
+
+    if (!focusTarget) {
+      return;
+    }
+
+    focusTarget.focus();
+    hasAppliedInitialFocus.current = true;
+  }, [initialFocus]);
+
   async function handleSubmit() {
+    const trimmedNewWorkLogEntry = newWorkLogEntry.trim();
     const payload = {
       header: values.header,
       body: values.body,
@@ -91,6 +133,20 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
       return;
     }
 
+    if (trimmedNewWorkLogEntry) {
+      const workLogValidationMessage = validateWorkLogInput({
+        body: trimmedNewWorkLogEntry,
+      });
+      if (workLogValidationMessage) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Unable to save task",
+          message: workLogValidationMessage,
+        });
+        return;
+      }
+    }
+
     const validationMessage = validateTaskInput(payload);
     if (validationMessage) {
       await showToast({
@@ -102,10 +158,20 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
     }
 
     try {
-      if (task) {
-        await repository.updateTask(task.id, payload);
-      } else {
-        await repository.createTask(payload);
+      const savedTask = task
+        ? await repository.updateTask(task.id, payload)
+        : await repository.createTask(payload);
+
+      if (trimmedNewWorkLogEntry) {
+        await repository.createWorkLog(savedTask.id, {
+          body: trimmedNewWorkLogEntry,
+        });
+        await maybeAdvanceTaskStatus(
+          savedTask.id,
+          payload.status,
+          statusBehavior,
+          repository,
+        );
       }
 
       await showToast({
@@ -201,6 +267,7 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
       }
     >
       <Form.TextField
+        ref={headerRef}
         id="header"
         title="✦ Header"
         placeholder="Task header"
@@ -314,8 +381,49 @@ export default function TaskForm({ notePath, task, onDidSave }: TaskFormProps) {
           ))}
         </>
       )}
+      <Form.TextArea
+        ref={newWorkLogRef}
+        id="newWorkLogEntry"
+        title="➕ New Log Entry"
+        placeholder="Log the work you completed for this task"
+        enableMarkdown
+        value={newWorkLogEntry}
+        onChange={setNewWorkLogEntry}
+      />
     </Form>
   );
+}
+
+async function maybeAdvanceTaskStatus(
+  taskId: string,
+  taskStatus: TaskStatus,
+  statusBehavior: TaskLogStatusBehavior,
+  repository: RaylogRepository,
+) {
+  if (taskStatus !== "open") {
+    return;
+  }
+
+  if (statusBehavior === "keep_status") {
+    return;
+  }
+
+  if (statusBehavior === "prompt") {
+    const confirmed = await confirmAlert({
+      title: "Move task to In Progress?",
+      message: "Logging work on an open task can also start the task.",
+      primaryAction: {
+        title: "Start Task",
+        style: Alert.ActionStyle.Default,
+      },
+    });
+
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  await repository.startTask(taskId);
 }
 
 function buildUpdatedWorkLogs(

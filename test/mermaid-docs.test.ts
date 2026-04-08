@@ -23,13 +23,23 @@ test("development docs include the complete validated command flow", async () =>
   assertEdge(parsed, "Storage note configured and valid?", "Yes, launch List Tasks", "Task list with detail pane");
   assertEdge(parsed, "Storage note configured and valid?", "Yes, launch Add Task", "Standalone Add Task form");
   assertEdge(parsed, "Task list with detail pane", "Enter", "View Task window");
-  assertEdge(parsed, "Task list with detail pane", "Cmd+L", "Log Work form");
+  assertEdge(
+    parsed,
+    "Task list with detail pane",
+    "Cmd+L",
+    "Edit Task form (new log focused)",
+  );
   assertEdge(parsed, "Task list with detail pane", "Cmd+Shift+C", "Complete selected task");
   assertEdge(parsed, "Task list with detail pane", "Cmd+N", "Add Task form");
   assertEdge(parsed, "Task list with detail pane", "Cmd+E", "Edit Task form");
-  assertEdge(parsed, "Full-window task detail", "Default action: Log Work", "Log Work form");
+  assertEdge(
+    parsed,
+    "Full-window task detail",
+    "Default action: Log Work",
+    "Edit Task form (new log focused)",
+  );
   assertEdge(parsed, "Full-window task detail", "Cmd+Shift+C", "Complete task");
-  assertEdge(parsed, "Log Work form", "Save Log", "Full-window task detail");
+  assertEdge(parsed, "Edit Task form (new log focused)", "Save", "Full-window task detail");
   assertEdge(parsed, "Full-window task detail", "Delete Task", "Delete task");
   assertEdge(parsed, "Current task in menu bar", "Click current task", "Full-window task detail");
   assertEdge(parsed, "Current task in menu bar", "Click task in Next 5 Tasks", "Full-window task detail");
@@ -57,8 +67,13 @@ test("readme includes the simplified user-facing window flow", async () => {
   assertEdge(parsed, "Storage note valid", "Yes", "List Tasks");
 
   assertEdge(parsed, "List Tasks", "Enter", "View Task");
-  assertEdge(parsed, "List Tasks", "Cmd+L", "Log Work Form");
-  assertEdge(parsed, "View Task", "Default action: Log Work", "Log Work Form");
+  assertEdge(parsed, "List Tasks", "Cmd+L", "Edit Task Form (new log focused)");
+  assertEdge(
+    parsed,
+    "View Task",
+    "Default action: Log Work",
+    "Edit Task Form (new log focused)",
+  );
   assertEdge(parsed, "View Task", "Cmd+Shift+C", "Complete Task");
   assertEdge(parsed, "Refresh Menu Bar", "Click current or next task", "View Task");
   assertEdge(parsed, "Refresh Menu Bar", "Open Task List", "List Tasks");

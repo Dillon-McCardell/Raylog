@@ -33,7 +33,6 @@ import type {
 } from "../lib/types";
 import TaskDetailView from "./TaskDetailView";
 import TaskForm from "./TaskForm";
-import TaskLogForm from "./TaskLogForm";
 
 interface TaskListScreenProps {
   notePath: string;
@@ -400,16 +399,6 @@ function TaskItem({
       onDidChangeTask={onReload}
     />
   );
-  const taskLogForm = (
-    <TaskLogForm
-      notePath={notePath}
-      task={task}
-      statusBehavior={taskLogStatusBehavior}
-      onDidSave={onReload}
-      onDidChangeTask={onReload}
-    />
-  );
-
   return (
     <List.Item
       id={task.id}
@@ -433,7 +422,17 @@ function TaskItem({
               title="Log Work"
               icon={Icon.Pencil}
               shortcut={{ modifiers: ["cmd"], key: "l" }}
-              target={taskLogForm}
+              target={
+                <TaskForm
+                  notePath={notePath}
+                  task={task}
+                  initialFocus="new_work_log"
+                  statusBehavior={taskLogStatusBehavior}
+                  onDidSave={async () => {
+                    await onReload();
+                  }}
+                />
+              }
             />
             <Action.Push
               title="Edit Task"
@@ -443,6 +442,7 @@ function TaskItem({
                 <TaskForm
                   notePath={notePath}
                   task={task}
+                  statusBehavior={taskLogStatusBehavior}
                   onDidSave={async () => {
                     await onReload();
                   }}
@@ -452,7 +452,13 @@ function TaskItem({
             <Action.Push
               title="Add Task"
               icon={Icon.Plus}
-              target={<TaskForm notePath={notePath} onDidSave={onReload} />}
+              target={
+                <TaskForm
+                  notePath={notePath}
+                  statusBehavior={taskLogStatusBehavior}
+                  onDidSave={onReload}
+                />
+              }
               shortcut={{ modifiers: ["cmd"], key: "n" }}
             />
             {isActiveTaskStatus(task.status) && (

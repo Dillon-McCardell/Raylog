@@ -76,9 +76,9 @@ flowchart TD
     Z -->|"Yes"| B
 
     B -->|"Enter"| E["View Task"]
-    B -->|"Cmd+L"| I["Log Work Form"]
+    B -->|"Cmd+L"| I["Edit Task Form (new log focused)"]
     B -->|"Cmd+N"| F["Add Task Form"]
-    B -->|"Cmd+E"| G["Edit Task"]
+    B -->|"Cmd+E"| G["Edit Task Form"]
     B -->|"Cmd+Shift+C"| H["Complete Task"]
 
     E -->|"Default action: Log Work"| I
@@ -86,7 +86,7 @@ flowchart TD
     E -->|"Cmd+Shift+C"| J["Complete Task"]
     E -->|"Archive or Delete"| K["Lifecycle Action"]
 
-    I -->|"Save Log"| E
+    I -->|"Save"| E
     G -->|"Save"| E
     F -->|"Save"| B
     H --> B
