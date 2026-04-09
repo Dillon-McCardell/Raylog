@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   getMenuBarTasks,
   filterTasks,
+  getTaskFilterDescription,
+  getTaskFilterLabel,
   getMenuBarTask,
   getTaskListIndicators,
   validateTaskInput,
@@ -48,6 +50,19 @@ test("all view excludes archived tasks", () => {
   assert.deepEqual(
     filterTasks(tasks, "all", "").map((task) => task.id),
     ["open", "in-progress", "done"],
+  );
+});
+
+test("task filter labels and descriptions clarify all-tasks versus open-only views", () => {
+  assert.equal(getTaskFilterLabel("all"), "All Tasks");
+  assert.equal(getTaskFilterLabel("open"), "Open");
+  assert.equal(
+    getTaskFilterDescription("all"),
+    "Includes open, in-progress, and done tasks. Archived tasks stay in their own view.",
+  );
+  assert.equal(
+    getTaskFilterDescription("open"),
+    "Shows only tasks with Open status.",
   );
 });
 

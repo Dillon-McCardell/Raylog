@@ -28,12 +28,22 @@ const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 const TASK_FILTER_LABELS: Record<TaskViewFilter, string> = {
-  all: "All",
-  open: "Inbox / Open",
+  all: "All Tasks",
+  open: "Open",
   in_progress: "In Progress",
   due_soon: "Due Soon",
   done: "Done",
   archived: "Archived",
+};
+
+const TASK_FILTER_DESCRIPTIONS: Record<TaskViewFilter, string> = {
+  all: "Includes open, in-progress, and done tasks. Archived tasks stay in their own view.",
+  open: "Shows only tasks with Open status.",
+  in_progress: "Shows only tasks with In Progress status.",
+  due_soon:
+    "Shows open and in-progress tasks due within the configured Due Soon window.",
+  done: "Shows only completed tasks.",
+  archived: "Shows only archived tasks.",
 };
 
 const OPEN_STATUS_PRIORITY: Record<TaskStatus, number> = {
@@ -49,6 +59,10 @@ export function getTaskStatusLabel(status: TaskStatus): string {
 
 export function getTaskFilterLabel(filter: TaskViewFilter): string {
   return TASK_FILTER_LABELS[filter];
+}
+
+export function getTaskFilterDescription(filter: TaskViewFilter): string {
+  return TASK_FILTER_DESCRIPTIONS[filter];
 }
 
 export function isTaskViewFilter(value: unknown): value is TaskViewFilter {

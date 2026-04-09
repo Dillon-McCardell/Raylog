@@ -51,20 +51,16 @@ export function buildTaskFilterActionSpecs(
     createFilterActionSpec("Show All Tasks", createShortcut(["cmd"], "1"), () =>
       onSelectFilter("all"),
     ),
-    createFilterActionSpec(
-      "Show Open Tasks",
-      createShortcut(["cmd"], "2"),
-      () => onSelectFilter("open"),
+    createFilterActionSpec("Show Open", createShortcut(["cmd"], "2"), () =>
+      onSelectFilter("open"),
     ),
     createFilterActionSpec(
-      "Show in Progress",
+      "Show In Progress",
       createShortcut(["cmd"], "3"),
       () => onSelectFilter("in_progress"),
     ),
-    createFilterActionSpec(
-      "Show Due Soon Tasks",
-      createShortcut(["cmd"], "4"),
-      () => onSelectFilter("due_soon"),
+    createFilterActionSpec("Show Due Soon", createShortcut(["cmd"], "4"), () =>
+      onSelectFilter("due_soon"),
     ),
     createFilterActionSpec(
       "Show Done Tasks",

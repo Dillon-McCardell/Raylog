@@ -90,7 +90,7 @@ function getActionIcon(title: string): Icon | undefined {
     case "Show Done Tasks":
       return Icon.CheckCircle;
     case "Start Task":
-    case "Show in Progress":
+    case "Show In Progress":
       return Icon.Play;
     case "Reopen Task":
       return Icon.ArrowCounterClockwise;
@@ -101,9 +101,9 @@ function getActionIcon(title: string): Icon | undefined {
       return Icon.Trash;
     case "Show All Tasks":
       return Icon.List;
-    case "Show Open Tasks":
+    case "Show Open":
       return Icon.Circle;
-    case "Show Due Soon Tasks":
+    case "Show Due Soon":
       return Icon.Alarm;
     default:
       return undefined;

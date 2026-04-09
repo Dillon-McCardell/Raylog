@@ -22,7 +22,8 @@ one markdown file, but the workflow is built entirely around Raycast.
 
 Use **List Tasks** to manage work from one command.
 
-- Filter by `Inbox / Open`, `In Progress`, `Due Soon`, `Done`, or `Archived`
+- Filter by `All Tasks`, `Open`, `In Progress`, `Due Soon`, `Done`, or `Archived`
+- `All Tasks` includes `Open`, `In Progress`, and `Done`; `Archived` remains a separate view
 - Search task headers and bodies within the active view
 - Jump between task views with `Cmd-1` through `Cmd-6`
 - Preview the task body and work logs in the detail pane
@@ -144,6 +145,12 @@ the Raylog block.
   file path is still valid.
 
 ## Development
+
+Task list terminology:
+
+- `All Tasks` is the default non-archived view
+- `Open` is the queue of tasks still in the `Open` status
+- `In Progress`, `Done`, and `Archived` map directly to their matching statuses
 
 ```bash
 npm install

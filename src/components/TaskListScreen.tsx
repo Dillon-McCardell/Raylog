@@ -22,6 +22,7 @@ import {
 } from "../lib/storage";
 import {
   filterTasks,
+  getTaskFilterDescription,
   getTaskFilterLabel,
   getTaskListIndicators,
   sortTasks,
@@ -151,6 +152,9 @@ export default function TaskListScreen({
 
   const hasAnyTasks = scopedTasks.length > 0;
   const hasSearchOrFilter = searchText.trim().length > 0 || hasAnyTasks;
+  const currentFilterDescription = getTaskFilterDescription(
+    effectiveSelectedFilter,
+  );
 
   return (
     <List
@@ -182,7 +186,7 @@ export default function TaskListScreen({
             loadError ??
             emptyDescription ??
             (hasSearchOrFilter
-              ? "Try another view or search, or create a new task."
+              ? `${currentFilterDescription} Try another view or search, or create a new task.`
               : "Create your first task or update the storage note in Raycast Settings.")
           }
           actions={
@@ -256,7 +260,7 @@ function TaskFilterDropdown({
 }) {
   return (
     <List.Dropdown
-      tooltip="Task View"
+      tooltip={getTaskFilterDescription(selectedFilter)}
       value={selectedFilter}
       onChange={(value) => void onSelectFilter(value as TaskViewFilter)}
     >
