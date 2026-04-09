@@ -11,32 +11,17 @@ import {
   useNavigation,
 } from "@raycast/api";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fromCanonicalDateString, toCanonicalDateString } from "../lib/date";
-import {
-  getRaylogErrorMessage,
-  isRaylogCorruptionError,
-  RaylogRepository,
-} from "../lib/storage";
-import {
-  getTaskStatusLabel,
-  validateTaskInput,
-  validateWorkLogInput,
-} from "../lib/tasks";
+import { fromCanonicalDateString } from "../lib/date";
+import { RaylogRepository } from "../lib/storage";
+import { showTaskMutationFailureToast } from "../lib/task-actions";
+import { submitTaskForm, type TaskFormValues } from "../lib/task-form-submit";
+import { getTaskStatusLabel } from "../lib/tasks";
 import type {
   TaskLogStatusBehavior,
   TaskRecord,
   TaskStatus,
   TaskWorkLogRecord,
 } from "../lib/types";
-
-interface TaskFormValues {
-  header: string;
-  body: string;
-  status: TaskStatus;
-  dueDate: Date | null;
-  startDate: Date | null;
-  workLogs: TaskWorkLogRecord[];
-}
 
 type TaskFormInitialFocus = "header" | "new_work_log";
 
@@ -104,103 +89,43 @@ export default function TaskForm({
   }, [initialFocus]);
 
   async function handleSubmit() {
-    const trimmedNewWorkLogEntry = newWorkLogEntry.trim();
-    const payload = {
-      header: values.header,
-      body: values.body,
-      status: values.status,
-      dueDate: toCanonicalDateString(values.dueDate),
-      startDate: toCanonicalDateString(values.startDate),
-      workLogs: isEditing
-        ? buildUpdatedWorkLogs(task!.workLogs, values.workLogs)
-        : [],
-    };
-
-    if (!values.header.trim()) {
-      setHeaderError("Header is required");
-      return;
-    }
-
-    const emptyWorkLog = values.workLogs.find(
-      (workLog) => !workLog.body.trim(),
-    );
-    if (emptyWorkLog) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Unable to save task",
-        message: "Work log entries cannot be empty.",
-      });
-      return;
-    }
-
-    if (trimmedNewWorkLogEntry) {
-      const workLogValidationMessage = validateWorkLogInput({
-        body: trimmedNewWorkLogEntry,
-      });
-      if (workLogValidationMessage) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "Unable to save task",
-          message: workLogValidationMessage,
-        });
-        return;
-      }
-    }
-
-    const validationMessage = validateTaskInput(payload);
-    if (validationMessage) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Unable to save task",
-        message: validationMessage,
-      });
-      return;
-    }
-
     try {
-      const savedTask = task
-        ? await repository.updateTask(task.id, payload)
-        : await repository.createTask(payload);
-
-      if (trimmedNewWorkLogEntry) {
-        await repository.createWorkLog(savedTask.id, {
-          body: trimmedNewWorkLogEntry,
-        });
-        await maybeAdvanceTaskStatus(
-          savedTask.id,
-          payload.status,
-          statusBehavior,
-          repository,
-        );
-      }
-
-      await showToast({
-        style: Toast.Style.Success,
-        title: isEditing ? "Task updated" : "Task created",
+      const result = await submitTaskForm({
+        repository,
+        task,
+        values,
+        newWorkLogEntry,
+        statusBehavior,
+        onDidSave,
+        pop,
+        popToRoot,
+        showToastImpl: async ({ style, title, message }) =>
+          showToast({
+            style:
+              style === "success" ? Toast.Style.Success : Toast.Style.Failure,
+            title,
+            message,
+          }),
+        confirmAlertImpl: async ({ title, message, primaryAction }) =>
+          confirmAlert({
+            title,
+            message,
+            primaryAction: {
+              title: primaryAction.title,
+              style: Alert.ActionStyle.Default,
+            },
+          }),
       });
 
-      if (onDidSave) {
-        await onDidSave();
-      }
-
-      try {
-        pop();
-      } catch {
-        await popToRoot({ clearSearchBar: true });
+      if (result === "missing_header") {
+        setHeaderError("Header is required");
       }
     } catch (error) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: isRaylogCorruptionError(error)
-          ? "Raylog database is corrupted"
-          : isEditing
-            ? "Unable to update task"
-            : "Unable to create task",
-        message: getRaylogErrorMessage(
-          error,
-          isEditing ? "Unable to update task." : "Unable to create task.",
-        ),
-      });
+      await showTaskMutationFailureToast(
+        error,
+        isEditing ? "Unable to update task" : "Unable to create task",
+        isEditing ? "Unable to update task." : "Unable to create task.",
+      );
     }
   }
 
@@ -392,65 +317,6 @@ export default function TaskForm({
       />
     </Form>
   );
-}
-
-async function maybeAdvanceTaskStatus(
-  taskId: string,
-  taskStatus: TaskStatus,
-  statusBehavior: TaskLogStatusBehavior,
-  repository: RaylogRepository,
-) {
-  if (taskStatus !== "open") {
-    return;
-  }
-
-  if (statusBehavior === "keep_status") {
-    return;
-  }
-
-  if (statusBehavior === "prompt") {
-    const confirmed = await confirmAlert({
-      title: "Move task to In Progress?",
-      message: "Logging work on an open task can also start the task.",
-      primaryAction: {
-        title: "Start Task",
-        style: Alert.ActionStyle.Default,
-      },
-    });
-
-    if (!confirmed) {
-      return;
-    }
-  }
-
-  await repository.startTask(taskId);
-}
-
-function buildUpdatedWorkLogs(
-  originalWorkLogs: TaskWorkLogRecord[],
-  nextWorkLogs: TaskWorkLogRecord[],
-): TaskWorkLogRecord[] {
-  const originalWorkLogMap = new Map(
-    originalWorkLogs.map((workLog) => [workLog.id, workLog]),
-  );
-  const now = new Date().toISOString();
-
-  return nextWorkLogs.map((workLog) => {
-    const original = originalWorkLogMap.get(workLog.id);
-    if (!original) {
-      return workLog;
-    }
-
-    if (original.body === workLog.body) {
-      return original;
-    }
-
-    return {
-      ...original,
-      body: workLog.body.trim(),
-      updatedAt: now,
-    };
-  });
 }
 
 function buildWorkLogInfo(workLog: TaskWorkLogRecord): string {

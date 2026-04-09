@@ -1,24 +1,14 @@
-import {
-  Action,
-  ActionPanel,
-  Alert,
-  Detail,
-  Icon,
-  Toast,
-  confirmAlert,
-  showToast,
-  useNavigation,
-} from "@raycast/api";
+import { Action, ActionPanel, Detail, Icon, useNavigation } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatTaskDate } from "../lib/date";
-import { getTaskStatusLabel, isActiveTaskStatus } from "../lib/tasks";
 import {
-  getRaylogErrorMessage,
-  isRaylogCorruptionError,
-  RaylogRepository,
-} from "../lib/storage";
+  buildTaskDetailActionSpecs,
+  type TaskActionSpec,
+} from "./task-action-specs";
+import { formatTaskDate } from "../lib/date";
+import { getTaskStatusLabel } from "../lib/tasks";
+import { buildTaskDetailMarkdown } from "../lib/task-presentation";
+import { getRaylogErrorMessage, RaylogRepository } from "../lib/storage";
 import type { TaskLogStatusBehavior, TaskRecord } from "../lib/types";
-import TaskForm from "./TaskForm";
 
 interface TaskDetailViewProps {
   notePath: string;
@@ -57,73 +47,6 @@ export default function TaskDetailView({
     void loadTask();
   }, [loadTask]);
 
-  const runTaskAction = useCallback(
-    async (title: string, action: () => Promise<unknown>) => {
-      try {
-        await action();
-        if (onDidChangeTask) {
-          await onDidChangeTask();
-        }
-        await showToast({
-          style: Toast.Style.Success,
-          title,
-        });
-        await loadTask();
-      } catch (error) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: isRaylogCorruptionError(error)
-            ? "Raylog database is corrupted"
-            : `Unable to ${title.toLowerCase()}`,
-          message: getRaylogErrorMessage(
-            error,
-            `Unable to ${title.toLowerCase()}.`,
-          ),
-        });
-      }
-    },
-    [loadTask, onDidChangeTask],
-  );
-
-  const handleDelete = useCallback(async () => {
-    if (!task) {
-      return;
-    }
-
-    const confirmed = await confirmAlert({
-      title: "Delete task?",
-      message: "This permanently removes the task from the storage note.",
-      primaryAction: {
-        title: "Delete Task",
-        style: Alert.ActionStyle.Destructive,
-      },
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await repository.deleteTask(task.id);
-      if (onDidChangeTask) {
-        await onDidChangeTask();
-      }
-      await showToast({
-        style: Toast.Style.Success,
-        title: "Task deleted",
-      });
-      pop();
-    } catch (error) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: isRaylogCorruptionError(error)
-          ? "Raylog database is corrupted"
-          : "Unable to delete task",
-        message: getRaylogErrorMessage(error, "Unable to delete task."),
-      });
-    }
-  }, [onDidChangeTask, pop, repository, task]);
-
   if (!task) {
     return (
       <Detail
@@ -143,11 +66,32 @@ export default function TaskDetailView({
     );
   }
 
+  const actionSpecs = buildTaskDetailActionSpecs({
+    notePath,
+    repository,
+    task,
+    taskLogStatusBehavior: statusBehavior,
+    onReload: async () => {
+      await loadTask();
+      if (onDidChangeTask) {
+        await onDidChangeTask();
+      }
+    },
+    onDidDelete: async () => {
+      if (onDidChangeTask) {
+        await onDidChangeTask();
+      }
+      pop();
+    },
+  });
+
   return (
     <Detail
       isLoading={isLoading}
       navigationTitle="View Task"
-      markdown={buildTaskDetailMarkdown(task)}
+      markdown={buildTaskDetailMarkdown(task, {
+        emptyBodyFallback: "_No body_",
+      })}
       metadata={
         <Detail.Metadata>
           <Detail.Metadata.Label
@@ -184,111 +128,9 @@ export default function TaskDetailView({
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.Push
-              title="Log Work"
-              icon={Icon.Pencil}
-              target={
-                <TaskForm
-                  notePath={notePath}
-                  task={task}
-                  initialFocus="new_work_log"
-                  statusBehavior={statusBehavior}
-                  onDidSave={async () => {
-                    await loadTask();
-                    if (onDidChangeTask) {
-                      await onDidChangeTask();
-                    }
-                  }}
-                />
-              }
-            />
-            <Action.Push
-              title="Add Task"
-              icon={Icon.Plus}
-              shortcut={{ modifiers: ["cmd"], key: "n" }}
-              target={
-                <TaskForm
-                  notePath={notePath}
-                  onDidSave={async () => {
-                    if (onDidChangeTask) {
-                      await onDidChangeTask();
-                    }
-                  }}
-                />
-              }
-            />
-            <Action.Push
-              title="Edit Task"
-              icon={Icon.Pencil}
-              shortcut={{ modifiers: ["cmd"], key: "e" }}
-              target={
-                <TaskForm
-                  notePath={notePath}
-                  task={task}
-                  statusBehavior={statusBehavior}
-                  onDidSave={async () => {
-                    await loadTask();
-                    if (onDidChangeTask) {
-                      await onDidChangeTask();
-                    }
-                  }}
-                />
-              }
-            />
-          </ActionPanel.Section>
-          <ActionPanel.Section>
-            {isActiveTaskStatus(task.status) && (
-              <Action
-                title="Complete Task"
-                icon={Icon.CheckCircle}
-                shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
-                onAction={() =>
-                  runTaskAction("Task completed", async () => {
-                    await repository.completeTask(task.id);
-                  })
-                }
-              />
-            )}
-            {task.status === "open" && (
-              <Action
-                title="Start Task"
-                icon={Icon.Play}
-                onAction={() =>
-                  runTaskAction("Task started", async () => {
-                    await repository.startTask(task.id);
-                  })
-                }
-              />
-            )}
-            {task.status !== "open" && (
-              <Action
-                title="Reopen Task"
-                icon={Icon.ArrowCounterClockwise}
-                onAction={() =>
-                  runTaskAction("Task reopened", async () => {
-                    await repository.reopenTask(task.id);
-                  })
-                }
-              />
-            )}
-            {task.status !== "archived" && (
-              <Action
-                title="Archive Task"
-                icon={Icon.Box}
-                onAction={() =>
-                  runTaskAction("Task archived", async () => {
-                    await repository.archiveTask(task.id);
-                  })
-                }
-              />
-            )}
-            <Action
-              title="Delete Task"
-              icon={Icon.Trash}
-              style={Action.Style.Destructive}
-              onAction={handleDelete}
-              shortcut={{ modifiers: ["ctrl"], key: "x" }}
-            />
+            {actionSpecs.map((spec) => (
+              <RenderedAction key={spec.title} spec={spec} />
+            ))}
           </ActionPanel.Section>
           <ActionPanel.Section>
             <Action
@@ -303,42 +145,25 @@ export default function TaskDetailView({
   );
 }
 
-function buildTaskDetailMarkdown(task: TaskRecord): string {
-  const safeHeader = escapeMarkdown(task.header);
-  const body = task.body.trim() ? task.body : "_No body_";
-  const workLogSections = task.workLogs
-    .map((workLog, index) => {
-      const createdLabel = `◷ Logged ${escapeMarkdown(
-        formatCompactDateTime(workLog.createdAt),
-      )}`;
-      const wasEdited =
-        workLog.updatedAt !== null &&
-        new Date(workLog.updatedAt).getTime() >
-          new Date(workLog.createdAt).getTime();
-      const workLogTimeline = wasEdited
-        ? `\`${createdLabel} -> ✎ Edited ${escapeMarkdown(
-            formatCompactDateTime(workLog.updatedAt as string),
-          )}\``
-        : `\`${createdLabel}\``;
-
-      return `🗂 **Work Log ${index + 1}**\n\n${workLogTimeline}\n\n${workLog.body}`;
-    })
-    .join("\n\n---\n\n");
-
-  if (!workLogSections) {
-    return `# ${safeHeader}\n\n---\n\n${body}`;
+function RenderedAction({ spec }: { spec: TaskActionSpec }) {
+  if (spec.target) {
+    return (
+        <Action.Push
+          title={spec.title}
+          icon={spec.icon}
+          shortcut={spec.shortcut as any}
+          target={spec.target as any}
+        />
+    );
   }
 
-  return `# ${safeHeader}\n\n---\n\n${body}\n\n---\n\n${workLogSections}`;
-}
-
-function escapeMarkdown(value: string): string {
-  return value.replace(/([\\`*_{}[\]()#+\-.!|>])/g, "\\$1");
-}
-
-function formatCompactDateTime(value: string): string {
-  return new Date(value).toLocaleString([], {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  return (
+    <Action
+      title={spec.title}
+      icon={spec.icon}
+      shortcut={spec.shortcut as any}
+      style={spec.style}
+      onAction={spec.onAction}
+    />
+  );
 }

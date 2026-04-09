@@ -296,6 +296,60 @@ test("persists the selected list filter in the storage document", async () => {
   assert.match(markdown, /"listTasksFilter": "archived"/);
 });
 
+test("serializes concurrent creates so both tasks persist", async () => {
+  const notePath = await createTempMarkdownFile("");
+  await resetStorageNote(notePath);
+  const repository = new RaylogRepository(notePath);
+
+  await Promise.all([
+    repository.createTask({ header: "First task" }),
+    repository.createTask({ header: "Second task" }),
+  ]);
+
+  const tasks = await repository.listTasks();
+  assert.equal(tasks.length, 2);
+  assert.deepEqual(tasks.map((task) => task.header).sort(), [
+    "First task",
+    "Second task",
+  ]);
+});
+
+test("serializes concurrent updates in invocation order", async () => {
+  const notePath = await createTempMarkdownFile("");
+  await resetStorageNote(notePath);
+  const repository = new RaylogRepository(notePath);
+  const task = await repository.createTask({
+    header: "Task",
+    body: "Original",
+  });
+
+  await Promise.all([
+    repository.updateTask(task.id, { header: "Task", body: "First update" }),
+    repository.updateTask(task.id, { header: "Task", body: "Second update" }),
+  ]);
+
+  const updatedTask = await repository.getTask(task.id);
+  assert.equal(updatedTask.body, "Second update");
+});
+
+test("failed queued mutations do not block later writes", async () => {
+  const notePath = await createTempMarkdownFile("");
+  await resetStorageNote(notePath);
+  const repository = new RaylogRepository(notePath);
+
+  const results = await Promise.allSettled([
+    repository.updateTask("missing", { header: "Missing" }),
+    repository.createTask({ header: "Recovery task" }),
+  ]);
+
+  assert.equal(results[0]?.status, "rejected");
+  assert.equal(results[1]?.status, "fulfilled");
+
+  const tasks = await repository.listTasks();
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0]?.header, "Recovery task");
+});
+
 test("defaults to all for current view state until a filter is explicitly selected", async () => {
   const notePath = await createTempMarkdownFile(
     `<!-- raylog:start -->

@@ -6,6 +6,7 @@ import type {
   TaskViewFilter,
   TaskWorkLogInput,
 } from "./types";
+import { matchesTaskSearch } from "./task-presentation";
 
 export type TaskListIndicatorColor = "red" | "blue";
 
@@ -82,7 +83,7 @@ export function filterTasks(
       return true;
     }
 
-    return matchesTaskSearch(task, normalizedSearch, options);
+    return matchesTaskSearchWithOptions(task, normalizedSearch, options);
   });
 }
 
@@ -240,24 +241,15 @@ function compareTasks(left: TaskRecord, right: TaskRecord): number {
   return right.updatedAt.localeCompare(left.updatedAt);
 }
 
-function matchesTaskSearch(
+function matchesTaskSearchWithOptions(
   task: TaskRecord,
   normalizedSearch: string,
   options?: TaskSearchOptions,
 ): boolean {
-  if (
-    task.header.toLowerCase().includes(normalizedSearch) ||
-    task.body.toLowerCase().includes(normalizedSearch)
-  ) {
-    return true;
-  }
-
-  if (!options?.includeWorkLogs) {
-    return false;
-  }
-
-  return task.workLogs.some((workLog) =>
-    workLog.body.toLowerCase().includes(normalizedSearch),
+  return matchesTaskSearch(
+    task,
+    normalizedSearch,
+    options?.includeWorkLogs ?? false,
   );
 }
 

@@ -205,6 +205,8 @@ export async function validateStorageNotePath(
 }
 
 export class RaylogRepository {
+  private pendingMutation = Promise.resolve();
+
   constructor(private readonly notePath: string) {}
 
   async listTasks(): Promise<TaskRecord[]> {
@@ -219,7 +221,7 @@ export class RaylogRepository {
   }
 
   async setListTasksFilter(filter: TaskViewFilter): Promise<void> {
-    await this.updateDocument((document) => ({
+    await this.mutateDocument((document) => ({
       ...document,
       viewState: {
         ...document.viewState,
@@ -245,7 +247,7 @@ export class RaylogRepository {
   async createTask(input: TaskInput): Promise<TaskRecord> {
     let createdTask: TaskRecord | undefined;
 
-    await this.updateDocument((document) => {
+    await this.mutateDocument((document) => {
       const now = new Date().toISOString();
       const status = input.status ?? "open";
       const task: TaskRecord = {
@@ -271,7 +273,7 @@ export class RaylogRepository {
   async updateTask(taskId: string, input: TaskInput): Promise<TaskRecord> {
     let updatedTask: TaskRecord | undefined;
 
-    await this.updateDocument((document) => {
+    await this.mutateDocument((document) => {
       const now = new Date().toISOString();
       const tasksWithTaskUpdate = document.tasks.map((task) => {
         if (task.id !== taskId) {
@@ -328,7 +330,7 @@ export class RaylogRepository {
   async deleteTask(taskId: string): Promise<void> {
     let didDelete = false;
 
-    await this.updateDocument((document) => {
+    await this.mutateDocument((document) => {
       const tasks = document.tasks.filter((task) => {
         if (task.id !== taskId) {
           return true;
@@ -354,7 +356,7 @@ export class RaylogRepository {
   ): Promise<TaskWorkLogRecord> {
     let createdWorkLog: TaskWorkLogRecord | undefined;
 
-    await this.updateDocument((document) => {
+    await this.mutateDocument((document) => {
       const now = new Date().toISOString();
       const tasks = document.tasks.map((task) => {
         if (task.id !== taskId) {
@@ -394,7 +396,7 @@ export class RaylogRepository {
   ): Promise<TaskWorkLogRecord> {
     let updatedWorkLog: TaskWorkLogRecord | undefined;
 
-    await this.updateDocument((document) => {
+    await this.mutateDocument((document) => {
       const now = new Date().toISOString();
       let didFindTask = false;
       const tasks = document.tasks.map((task) => {
@@ -447,7 +449,7 @@ export class RaylogRepository {
   }
 
   async deleteWorkLog(taskId: string, workLogId: string): Promise<void> {
-    await this.updateDocument((document) => {
+    await this.mutateDocument((document) => {
       const now = new Date().toISOString();
       let didFindTask = false;
       let didDeleteWorkLog = false;
@@ -500,7 +502,7 @@ export class RaylogRepository {
     let completedTask: TaskRecord | undefined;
     const now = new Date().toISOString();
 
-    await this.updateDocument((document) => {
+    await this.mutateDocument((document) => {
       const tasks = document.tasks.map((task) => {
         if (task.id !== taskId) {
           return task;
@@ -534,17 +536,38 @@ export class RaylogRepository {
     return parseRaylogMarkdown(markdown).document;
   }
 
+  private async mutateDocument<T>(
+    transform: (document: RaylogDocument) => T,
+  ): Promise<T> {
+    const runMutation = async (): Promise<T> => {
+      await ensureStorageNote(this.notePath);
+      const markdown = await fs.promises.readFile(this.notePath, "utf8");
+      const { document } = parseRaylogMarkdown(markdown);
+      const result = transform(document);
+      const updatedDocument = isRaylogDocument(result) ? result : document;
+
+      if (updatedDocument !== document) {
+        await writeMarkdownAtomically(
+          this.notePath,
+          mergeRaylogMarkdown(markdown, updatedDocument),
+        );
+      }
+
+      return result;
+    };
+
+    const nextMutation = this.pendingMutation.then(runMutation, runMutation);
+    this.pendingMutation = nextMutation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return nextMutation;
+  }
+
   private async updateDocument(
     transform: (document: RaylogDocument) => RaylogDocument,
   ): Promise<void> {
-    await ensureStorageNote(this.notePath);
-    const markdown = await fs.promises.readFile(this.notePath, "utf8");
-    const { document } = parseRaylogMarkdown(markdown);
-    const updatedDocument = transform(document);
-    await writeMarkdownAtomically(
-      this.notePath,
-      mergeRaylogMarkdown(markdown, updatedDocument),
-    );
+    await this.mutateDocument(transform);
   }
 }
 
@@ -617,6 +640,16 @@ function normalizeViewState(value: unknown): RaylogDocument["viewState"] {
       ? candidate.listTasksFilter
       : "all",
   };
+}
+
+function isRaylogDocument(value: unknown): value is RaylogDocument {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "schemaVersion" in value &&
+    "tasks" in value &&
+    "viewState" in value
+  );
 }
 
 function requireString(value: unknown, label: string): string {

@@ -1,17 +1,20 @@
 import {
   Action,
   ActionPanel,
-  Alert,
   Icon,
   List,
   Toast,
-  confirmAlert,
   environment,
   openExtensionPreferences,
   showToast,
 } from "@raycast/api";
 import path from "path";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  buildTaskFilterActionSpecs,
+  buildTaskListActionSpecs,
+  type TaskActionSpec,
+} from "./task-action-specs";
 import { getDueSoonDays, getEnabledListMetadata } from "../lib/config";
 import {
   getRaylogErrorMessage,
@@ -22,16 +25,18 @@ import {
   filterTasks,
   getTaskFilterLabel,
   getTaskListIndicators,
-  isActiveTaskStatus,
   sortTasks,
 } from "../lib/tasks";
+import {
+  buildTaskDetailMarkdown,
+  matchesTaskSearch,
+} from "../lib/task-presentation";
 import type {
   TaskLogStatusBehavior,
   TaskRecord,
   TaskStatus,
   TaskViewFilter,
 } from "../lib/types";
-import TaskDetailView from "./TaskDetailView";
 import TaskForm from "./TaskForm";
 
 interface TaskListScreenProps {
@@ -218,11 +223,11 @@ export default function TaskListScreen({
             key={task.id}
             enabledListMetadata={enabledListMetadata}
             notePath={notePath}
-            onSelectFilter={handleSelectFilter}
             task={task}
             onReload={loadTasks}
             hideFilters={hideFilters}
             taskLogStatusBehavior={taskLogStatusBehavior}
+            onSelectFilter={handleSelectFilter}
           />
         ))
       )}
@@ -282,42 +287,9 @@ function TaskFilterActions({
 }) {
   return (
     <ActionPanel.Section>
-      <Action
-        title="Show All Tasks"
-        icon={Icon.List}
-        onAction={() => void onSelectFilter("all")}
-        shortcut={{ modifiers: ["cmd"], key: "1" }}
-      />
-      <Action
-        title="Show Open Tasks"
-        icon={Icon.Circle}
-        onAction={() => void onSelectFilter("open")}
-        shortcut={{ modifiers: ["cmd"], key: "2" }}
-      />
-      <Action
-        title="Show in Progress"
-        icon={Icon.Play}
-        onAction={() => void onSelectFilter("in_progress")}
-        shortcut={{ modifiers: ["cmd"], key: "3" }}
-      />
-      <Action
-        title="Show Due Soon Tasks"
-        icon={Icon.Alarm}
-        onAction={() => void onSelectFilter("due_soon")}
-        shortcut={{ modifiers: ["cmd"], key: "4" }}
-      />
-      <Action
-        title="Show Done Tasks"
-        icon={Icon.CheckCircle}
-        onAction={() => void onSelectFilter("done")}
-        shortcut={{ modifiers: ["cmd"], key: "5" }}
-      />
-      <Action
-        title="Show Archived Tasks"
-        icon={Icon.Box}
-        onAction={() => void onSelectFilter("archived")}
-        shortcut={{ modifiers: ["cmd"], key: "6" }}
-      />
+      {buildTaskFilterActionSpecs(onSelectFilter).map((spec) => (
+        <RenderedAction key={spec.title} spec={spec} />
+      ))}
     </ActionPanel.Section>
   );
 }
@@ -333,72 +305,14 @@ function TaskItem({
 }: TaskItemProps) {
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const indicators = getTaskListIndicators(task, enabledListMetadata);
+  const actionSpecs = buildTaskListActionSpecs({
+    notePath,
+    repository,
+    onReload,
+    task,
+    taskLogStatusBehavior,
+  });
 
-  const runTaskAction = useCallback(
-    async (title: string, action: () => Promise<unknown>) => {
-      try {
-        await action();
-        await showToast({
-          style: Toast.Style.Success,
-          title,
-        });
-        await onReload();
-      } catch (error) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: isRaylogCorruptionError(error)
-            ? "Raylog database is corrupted"
-            : `Unable to ${title.toLowerCase()}`,
-          message: getRaylogErrorMessage(
-            error,
-            `Unable to ${title.toLowerCase()}.`,
-          ),
-        });
-      }
-    },
-    [onReload],
-  );
-
-  const handleDelete = useCallback(async () => {
-    const confirmed = await confirmAlert({
-      title: "Delete task?",
-      message: "This permanently removes the task from the storage note.",
-      primaryAction: {
-        title: "Delete Task",
-        style: Alert.ActionStyle.Destructive,
-      },
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await repository.deleteTask(task.id);
-      await showToast({
-        style: Toast.Style.Success,
-        title: "Task deleted",
-      });
-      await onReload();
-    } catch (error) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: isRaylogCorruptionError(error)
-          ? "Raylog database is corrupted"
-          : "Unable to delete task",
-        message: getRaylogErrorMessage(error, "Unable to delete task."),
-      });
-    }
-  }, [onReload, repository, task.id]);
-
-  const taskView = (
-    <TaskDetailView
-      notePath={notePath}
-      taskId={task.id}
-      statusBehavior={taskLogStatusBehavior}
-      onDidChangeTask={onReload}
-    />
-  );
   return (
     <List.Item
       id={task.id}
@@ -413,109 +327,17 @@ function TaskItem({
             }))
           : undefined
       }
-      detail={<List.Item.Detail markdown={buildTaskDetailMarkdown(task)} />}
+      detail={
+        <List.Item.Detail
+          markdown={buildTaskDetailMarkdown(task, { includeTopSpacer: true })}
+        />
+      }
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.Push title="Open Task" icon={Icon.Eye} target={taskView} />
-            <Action.Push
-              title="Log Work"
-              icon={Icon.Pencil}
-              shortcut={{ modifiers: ["cmd"], key: "l" }}
-              target={
-                <TaskForm
-                  notePath={notePath}
-                  task={task}
-                  initialFocus="new_work_log"
-                  statusBehavior={taskLogStatusBehavior}
-                  onDidSave={async () => {
-                    await onReload();
-                  }}
-                />
-              }
-            />
-            <Action.Push
-              title="Edit Task"
-              icon={Icon.Pencil}
-              shortcut={{ modifiers: ["cmd"], key: "e" }}
-              target={
-                <TaskForm
-                  notePath={notePath}
-                  task={task}
-                  statusBehavior={taskLogStatusBehavior}
-                  onDidSave={async () => {
-                    await onReload();
-                  }}
-                />
-              }
-            />
-            <Action.Push
-              title="Add Task"
-              icon={Icon.Plus}
-              target={
-                <TaskForm
-                  notePath={notePath}
-                  statusBehavior={taskLogStatusBehavior}
-                  onDidSave={onReload}
-                />
-              }
-              shortcut={{ modifiers: ["cmd"], key: "n" }}
-            />
-            {isActiveTaskStatus(task.status) && (
-              <Action
-                title="Complete Task"
-                icon={Icon.CheckCircle}
-                shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
-                onAction={() =>
-                  runTaskAction("Task completed", async () => {
-                    await repository.completeTask(task.id);
-                  })
-                }
-              />
-            )}
-            {task.status === "open" && (
-              <Action
-                title="Start Task"
-                icon={Icon.Play}
-                onAction={() =>
-                  runTaskAction("Task started", async () => {
-                    await repository.startTask(task.id);
-                  })
-                }
-                shortcut={{ modifiers: ["cmd"], key: "s" }}
-              />
-            )}
-            {task.status === "done" && (
-              <Action
-                title="Reopen Task"
-                icon={Icon.ArrowCounterClockwise}
-                onAction={() =>
-                  runTaskAction("Task reopened", async () => {
-                    await repository.reopenTask(task.id);
-                  })
-                }
-                shortcut={{ modifiers: ["cmd"], key: "r" }}
-              />
-            )}
-            {task.status === "in_progress" && (
-              <Action
-                title="Archive Task"
-                icon={Icon.Box}
-                onAction={() =>
-                  runTaskAction("Task archived", async () => {
-                    await repository.archiveTask(task.id);
-                  })
-                }
-                shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
-              />
-            )}
-            <Action
-              title="Delete Task"
-              icon={Icon.Trash}
-              style={Action.Style.Destructive}
-              onAction={handleDelete}
-              shortcut={{ modifiers: ["ctrl"], key: "x" }}
-            />
+            {actionSpecs.map((spec) => (
+              <RenderedAction key={spec.title} spec={spec} />
+            ))}
           </ActionPanel.Section>
           {!hideFilters && (
             <TaskFilterActions onSelectFilter={onSelectFilter} />
@@ -531,86 +353,6 @@ function TaskItem({
       }
     />
   );
-}
-
-function matchesTaskSearch(
-  task: TaskRecord,
-  normalizedSearch: string,
-  includeWorkLogs: boolean,
-): boolean {
-  if (
-    task.header.toLowerCase().includes(normalizedSearch) ||
-    task.body.toLowerCase().includes(normalizedSearch)
-  ) {
-    return true;
-  }
-
-  if (!includeWorkLogs) {
-    return false;
-  }
-
-  return task.workLogs.some((workLog) =>
-    workLog.body.toLowerCase().includes(normalizedSearch),
-  );
-}
-
-function buildTaskDetailMarkdown(task: TaskRecord): string {
-  const topSpacer = "⁠";
-  const safeHeader = escapeMarkdown(task.header);
-  const body = task.body.trim();
-  const createdLabel = `◷ Created ${escapeMarkdown(
-    formatCompactDateTime(task.createdAt),
-  )}`;
-  const wasEdited =
-    new Date(task.updatedAt).getTime() > new Date(task.createdAt).getTime();
-  const taskTimeline = wasEdited
-    ? `\`${createdLabel} -> ✎ Edited ${escapeMarkdown(
-        formatCompactDateTime(task.updatedAt),
-      )}\``
-    : `\`${createdLabel}\``;
-  const workLogSections = task.workLogs
-    .map((workLog, index) => {
-      const createdLabel = `◷ Logged ${escapeMarkdown(
-        formatCompactDateTime(workLog.createdAt),
-      )}`;
-      const wasEdited =
-        workLog.updatedAt !== null &&
-        new Date(workLog.updatedAt).getTime() >
-          new Date(workLog.createdAt).getTime();
-      const workLogTimeline = wasEdited
-        ? `\`${createdLabel} -> ✎ Edited ${escapeMarkdown(
-            formatCompactDateTime(workLog.updatedAt as string),
-          )}\``
-        : `\`${createdLabel}\``;
-
-      return `🗂 **Work Log ${index + 1}**\n\n${workLogTimeline}\n\n${workLog.body}`;
-    })
-    .join("\n\n---\n\n");
-
-  if (!workLogSections) {
-    if (!body) {
-      return `${topSpacer}\n${taskTimeline}\n# ${safeHeader}`;
-    }
-
-    return `${topSpacer}\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}`;
-  }
-
-  if (!body) {
-    return `${topSpacer}\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${workLogSections}`;
-  }
-
-  return `${topSpacer}\n${taskTimeline}\n# ${safeHeader}\n\n---\n\n${body}\n\n---\n\n${workLogSections}`;
-}
-
-function escapeMarkdown(value: string): string {
-  return value.replace(/([\\`*_{}[\]()#+\-.!|>])/g, "\\$1");
-}
-
-function formatCompactDateTime(value: string): string {
-  return new Date(value).toLocaleString([], {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
 }
 
 function getTaskIcon(status: TaskStatus): Icon {
@@ -630,5 +372,28 @@ function getIndicatorIcon(color: "red" | "blue"): string {
   return path.join(
     environment.assetsPath,
     color === "red" ? "due-indicator.svg" : "start-indicator.svg",
+  );
+}
+
+function RenderedAction({ spec }: { spec: TaskActionSpec }) {
+  if (spec.target) {
+    return (
+        <Action.Push
+          title={spec.title}
+          icon={spec.icon}
+          shortcut={spec.shortcut as any}
+          target={spec.target as any}
+        />
+    );
+  }
+
+  return (
+    <Action
+      title={spec.title}
+      icon={spec.icon}
+      shortcut={spec.shortcut as any}
+      style={spec.style}
+      onAction={spec.onAction}
+    />
   );
 }

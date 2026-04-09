@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
+import {
+  buildTaskDetailActionSpecs,
+  buildTaskListActionSpecs,
+} from "../src/lib/task-flow";
 
 const workspaceRoot = path.resolve(__dirname, "..");
 
@@ -13,15 +17,55 @@ test("development docs include the complete validated command flow", async () =>
   assertEdge(parsed, "Raylog", "", "List Tasks command");
   assertEdge(parsed, "Raylog", "", "Add Task command");
   assertEdge(parsed, "Raylog", "", "Refresh Menu Bar command");
-  assertEdge(parsed, "List Tasks command", "", "Storage note configured and valid?");
-  assertEdge(parsed, "Add Task command", "", "Storage note configured and valid?");
-  assertEdge(parsed, "Storage note configured and valid?", "No", "Setup / reset empty state");
-  assertEdge(parsed, "Setup / reset empty state", "Open Extension Preferences", "Storage note configured and valid?");
-  assertEdge(parsed, "Setup / reset empty state", "Generate New Task Database", "Storage note configured and valid?");
-  assertEdge(parsed, "Setup / reset empty state", "Reset Storage Note", "Storage note configured and valid?");
+  assertEdge(
+    parsed,
+    "List Tasks command",
+    "",
+    "Storage note configured and valid?",
+  );
+  assertEdge(
+    parsed,
+    "Add Task command",
+    "",
+    "Storage note configured and valid?",
+  );
+  assertEdge(
+    parsed,
+    "Storage note configured and valid?",
+    "No",
+    "Setup / reset empty state",
+  );
+  assertEdge(
+    parsed,
+    "Setup / reset empty state",
+    "Open Extension Preferences",
+    "Storage note configured and valid?",
+  );
+  assertEdge(
+    parsed,
+    "Setup / reset empty state",
+    "Generate New Task Database",
+    "Storage note configured and valid?",
+  );
+  assertEdge(
+    parsed,
+    "Setup / reset empty state",
+    "Reset Storage Note",
+    "Storage note configured and valid?",
+  );
 
-  assertEdge(parsed, "Storage note configured and valid?", "Yes, launch List Tasks", "Task list with detail pane");
-  assertEdge(parsed, "Storage note configured and valid?", "Yes, launch Add Task", "Standalone Add Task form");
+  assertEdge(
+    parsed,
+    "Storage note configured and valid?",
+    "Yes, launch List Tasks",
+    "Task list with detail pane",
+  );
+  assertEdge(
+    parsed,
+    "Storage note configured and valid?",
+    "Yes, launch Add Task",
+    "Standalone Add Task form",
+  );
   assertEdge(parsed, "Task list with detail pane", "Enter", "View Task window");
   assertEdge(
     parsed,
@@ -29,7 +73,12 @@ test("development docs include the complete validated command flow", async () =>
     "Cmd+L",
     "Edit Task form (new log focused)",
   );
-  assertEdge(parsed, "Task list with detail pane", "Cmd+Shift+C", "Complete selected task");
+  assertEdge(
+    parsed,
+    "Task list with detail pane",
+    "Cmd+Shift+C",
+    "Complete selected task",
+  );
   assertEdge(parsed, "Task list with detail pane", "Cmd+N", "Add Task form");
   assertEdge(parsed, "Task list with detail pane", "Cmd+E", "Edit Task form");
   assertEdge(
@@ -39,14 +88,49 @@ test("development docs include the complete validated command flow", async () =>
     "Edit Task form (new log focused)",
   );
   assertEdge(parsed, "Full-window task detail", "Cmd+Shift+C", "Complete task");
-  assertEdge(parsed, "Edit Task form (new log focused)", "Save", "Full-window task detail");
+  assertEdge(
+    parsed,
+    "Edit Task form (new log focused)",
+    "Save",
+    "Full-window task detail",
+  );
   assertEdge(parsed, "Full-window task detail", "Delete Task", "Delete task");
-  assertEdge(parsed, "Current task in menu bar", "Click current task", "Full-window task detail");
-  assertEdge(parsed, "Current task in menu bar", "Click task in Next 5 Tasks", "Full-window task detail");
-  assertEdge(parsed, "Current task in menu bar", "Open Task List", "Task list with detail pane");
-  assertEdge(parsed, "Current task in menu bar", "Complete Current Task", "Complete current task");
-  assertEdge(parsed, "Refresh Menu Bar command", "No storage note", "Set Up Raylog menu bar state");
-  assertEdge(parsed, "Set Up Raylog menu bar state", "Open Extension Preferences", "Storage note configured and valid?");
+  assertEdge(
+    parsed,
+    "Current task in menu bar",
+    "Click current task",
+    "Full-window task detail",
+  );
+  assertEdge(
+    parsed,
+    "Current task in menu bar",
+    "Click task in Next 5 Tasks",
+    "Full-window task detail",
+  );
+  assertEdge(
+    parsed,
+    "Current task in menu bar",
+    "Open Task List",
+    "Task list with detail pane",
+  );
+  assertEdge(
+    parsed,
+    "Current task in menu bar",
+    "Complete Current Task",
+    "Complete current task",
+  );
+  assertEdge(
+    parsed,
+    "Refresh Menu Bar command",
+    "No storage note",
+    "Set Up Raylog menu bar state",
+  );
+  assertEdge(
+    parsed,
+    "Set Up Raylog menu bar state",
+    "Open Extension Preferences",
+    "Storage note configured and valid?",
+  );
 
   assert.ok(!diagram.includes("Cmd+Shift+O"));
   assert.ok(!diagram.includes("Log Task command"));
@@ -55,7 +139,11 @@ test("development docs include the complete validated command flow", async () =>
 
 test("readme includes the simplified user-facing window flow", async () => {
   const markdown = await readWorkspaceFile("README.md");
-  const diagram = extractSingleMermaidBlock(markdown, "README.md", "### Window Flow");
+  const diagram = extractSingleMermaidBlock(
+    markdown,
+    "README.md",
+    "### Window Flow",
+  );
   const parsed = parseMermaidFlow(diagram);
 
   assertEdge(parsed, "Raylog", "", "List Tasks");
@@ -75,36 +163,62 @@ test("readme includes the simplified user-facing window flow", async () => {
     "Edit Task Form (new log focused)",
   );
   assertEdge(parsed, "View Task", "Cmd+Shift+C", "Complete Task");
-  assertEdge(parsed, "Refresh Menu Bar", "Click current or next task", "View Task");
+  assertEdge(
+    parsed,
+    "Refresh Menu Bar",
+    "Click current or next task",
+    "View Task",
+  );
   assertEdge(parsed, "Refresh Menu Bar", "Open Task List", "List Tasks");
-  assertEdge(parsed, "Refresh Menu Bar", "Complete Current Task", "Complete Task");
-  assertEdge(parsed, "Refresh Menu Bar", "No storage note", "Setup or reset state");
+  assertEdge(
+    parsed,
+    "Refresh Menu Bar",
+    "Complete Current Task",
+    "Complete Task",
+  );
+  assertEdge(
+    parsed,
+    "Refresh Menu Bar",
+    "No storage note",
+    "Setup or reset state",
+  );
 
   assert.ok(!diagram.includes("Cmd+Shift+O"));
   assert.ok(!diagram.includes("Log Task"));
 });
 
 test("implementation still matches the documented key shortcuts", async () => {
-  const listScreen = await readWorkspaceFile("src/components/TaskListScreen.tsx");
-  const taskDetailView = await readWorkspaceFile(
-    "src/components/TaskDetailView.tsx",
-  );
   const readme = await readWorkspaceFile("README.md");
+  const task = createTask();
+  const listSpecs = buildTaskListActionSpecs({
+    notePath: "/tmp/raylog-test.md",
+    repository: createRepositoryStub(),
+    onReload: async () => undefined,
+    task,
+    taskLogStatusBehavior: "auto_start",
+  });
+  const detailSpecs = buildTaskDetailActionSpecs({
+    notePath: "/tmp/raylog-test.md",
+    repository: createRepositoryStub(),
+    task,
+    taskLogStatusBehavior: "auto_start",
+    onReload: async () => undefined,
+    onDidDelete: async () => undefined,
+  });
 
-  assert.match(listScreen, /title="Open Task"/);
-  assert.match(
-    listScreen,
-    /title="Log Work"[\s\S]*shortcut=\{\{ modifiers: \["cmd"\], key: "l" \}\}/,
+  assert.ok(listSpecs.some((spec) => spec.title === "Open Task"));
+  assert.deepEqual(
+    listSpecs.find((spec) => spec.title === "Log Work")?.shortcut,
+    { modifiers: ["cmd"], key: "l" },
   );
-  assert.match(
-    listScreen,
-    /title="Complete Task"[\s\S]*shortcut=\{\{ modifiers: \["cmd", "shift"\], key: "c" \}\}/,
+  assert.deepEqual(
+    listSpecs.find((spec) => spec.title === "Complete Task")?.shortcut,
+    { modifiers: ["cmd", "shift"], key: "c" },
   );
-
-  assert.match(taskDetailView, /title="Log Work"/);
-  assert.match(
-    taskDetailView,
-    /title="Complete Task"[\s\S]*shortcut=\{\{ modifiers: \["cmd", "shift"\], key: "c" \}\}/,
+  assert.equal(detailSpecs[0]?.title, "Log Work");
+  assert.deepEqual(
+    detailSpecs.find((spec) => spec.title === "Complete Task")?.shortcut,
+    { modifiers: ["cmd", "shift"], key: "c" },
   );
 
   assert.match(readme, /"schemaVersion": 1/);
@@ -144,9 +258,7 @@ function parseMermaidFlow(diagram: string): {
 
   const edges: Array<{ from: string; action: string; to: string }> = [];
   for (const rawLine of diagram.split("\n")) {
-    const line = rawLine
-      .trim()
-      .replace(/([A-Za-z0-9_]+)\["[^"]+"\]/g, "$1");
+    const line = rawLine.trim().replace(/([A-Za-z0-9_]+)\["[^"]+"\]/g, "$1");
     const match = line.match(
       /^([A-Za-z0-9_]+)\s*-->\s*(?:\|"([^"]+)"\||\|([^|]+)\|)?\s*([A-Za-z0-9_]+)/,
     );
@@ -175,9 +287,55 @@ function assertEdge(
 ) {
   assert.ok(
     parsed.edges.some(
-      (edge) =>
-        edge.from === from && edge.action === action && edge.to === to,
+      (edge) => edge.from === from && edge.action === action && edge.to === to,
     ),
     `Missing Mermaid edge: ${from} --${action || "(unlabeled)"}--> ${to}`,
   );
+}
+
+function createRepositoryStub() {
+  return {
+    completeTask: async () => createTask({ status: "done" }),
+    updateTask: async () => createTask(),
+    createTask: async () => createTask(),
+    createWorkLog: async () => ({
+      id: "log-2",
+      body: "Logged progress",
+      createdAt: "2026-04-03T00:00:00.000Z",
+      updatedAt: null,
+    }),
+    startTask: async () => createTask({ status: "in_progress" }),
+    reopenTask: async () => createTask(),
+    archiveTask: async () => createTask({ status: "archived" }),
+    deleteTask: async () => undefined,
+  } as never;
+}
+
+function createTask(
+  overrides: Partial<{
+    id: string;
+    header: string;
+    body: string;
+    workLogs: never[];
+    status: "open" | "in_progress" | "done" | "archived";
+    dueDate: null;
+    startDate: null;
+    completedAt: null;
+    createdAt: string;
+    updatedAt: string;
+  }> = {},
+) {
+  return {
+    id: "task-id",
+    header: "Task",
+    body: "Task body",
+    workLogs: [],
+    status: "open" as const,
+    dueDate: null,
+    startDate: null,
+    completedAt: null,
+    createdAt: "2026-04-03T00:00:00.000Z",
+    updatedAt: "2026-04-03T00:00:00.000Z",
+    ...overrides,
+  };
 }
