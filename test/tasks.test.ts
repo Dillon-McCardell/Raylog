@@ -178,7 +178,7 @@ test("validates date order", () => {
   );
 });
 
-test("builds due and future start indicators in priority order", () => {
+test("shows only the future start indicator when both dates are enabled", () => {
   const start = new Date();
   start.setDate(start.getDate() + 1);
   const due = new Date();
@@ -192,14 +192,12 @@ test("builds due and future start indicators in priority order", () => {
     { dueDate: true, startDate: true },
   );
 
-  assert.equal(indicators.length, 2);
-  assert.equal(indicators[0]?.color, "red");
-  assert.equal(indicators[0]?.text, "3d");
-  assert.equal(indicators[1]?.color, "blue");
-  assert.equal(indicators[1]?.text, "1d");
+  assert.equal(indicators.length, 1);
+  assert.equal(indicators[0]?.color, "blue");
+  assert.equal(indicators[0]?.text, "1d");
 });
 
-test("hides past start indicators and respects metadata toggles", () => {
+test("shows only the due indicator when the start date is in the past", () => {
   const pastStart = new Date();
   pastStart.setDate(pastStart.getDate() - 1);
   const due = new Date();

@@ -175,18 +175,28 @@ export function getTaskListIndicators(
     tooltip: string;
   }> = [];
 
+  const startIndicator = enabledMetadata.startDate
+    ? getStartDateIndicator(task.startDate)
+    : null;
+
+  if (enabledMetadata.startDate && enabledMetadata.dueDate) {
+    if (startIndicator !== null) {
+      return [startIndicator];
+    }
+
+    const dueIndicator = getDueDateIndicator(task.dueDate);
+    return dueIndicator !== null ? [dueIndicator] : [];
+  }
+
+  if (startIndicator !== null) {
+    indicators.push(startIndicator);
+  }
+
   const dueIndicator = enabledMetadata.dueDate
     ? getDueDateIndicator(task.dueDate)
     : null;
   if (dueIndicator !== null) {
     indicators.push(dueIndicator);
-  }
-
-  const startIndicator = enabledMetadata.startDate
-    ? getStartDateIndicator(task.startDate)
-    : null;
-  if (startIndicator !== null) {
-    indicators.push(startIndicator);
   }
 
   return indicators;

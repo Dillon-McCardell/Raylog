@@ -1,14 +1,13 @@
 import {
   Action,
   ActionPanel,
+  Color,
   Icon,
   List,
   Toast,
-  environment,
   openExtensionPreferences,
   showToast,
 } from "@raycast/api";
-import path from "path";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   buildTaskFilterActionSpecs,
@@ -317,12 +316,14 @@ function TaskItem({
     <List.Item
       id={task.id}
       icon={getTaskIcon(task.status)}
-      title={task.header}
+      title={buildTaskTitle(task.header, indicators)}
       accessories={
         indicators.length > 0
           ? indicators.map((indicator) => ({
-              icon: getIndicatorIcon(indicator.color),
-              text: indicator.text,
+              tag: {
+                value: indicator.text,
+                color: getIndicatorColor(indicator.color),
+              },
               tooltip: indicator.tooltip,
             }))
           : undefined
@@ -368,11 +369,46 @@ function getTaskIcon(status: TaskStatus): Icon {
   }
 }
 
-function getIndicatorIcon(color: "red" | "blue"): string {
-  return path.join(
-    environment.assetsPath,
-    color === "red" ? "due-indicator.svg" : "start-indicator.svg",
+function getIndicatorColor(color: "red" | "blue"): Color.ColorLike {
+  return color === "red" ? Color.Red : Color.Blue;
+}
+
+function buildTaskTitle(
+  header: string,
+  indicators: ReturnType<typeof getTaskListIndicators>,
+): { value: string; tooltip: string } {
+  const maxTitleLength = getMaxTaskTitleLength(indicators);
+
+  if (header.length <= maxTitleLength) {
+    return {
+      value: header,
+      tooltip: header,
+    };
+  }
+
+  return {
+    value: `${header.slice(0, maxTitleLength - 3)}...`,
+    tooltip: header,
+  };
+}
+
+function getMaxTaskTitleLength(
+  indicators: ReturnType<typeof getTaskListIndicators>,
+): number {
+  if (indicators.length === 0) {
+    return 72;
+  }
+
+  const indicatorTextWidth = indicators.reduce(
+    (width, indicator) => width + indicator.text.length,
+    0,
   );
+
+  if (indicators.length >= 2) {
+    return Math.max(11, 22 - indicatorTextWidth);
+  }
+
+  return Math.max(17, 32 - indicatorTextWidth);
 }
 
 function RenderedAction({ spec }: { spec: TaskActionSpec }) {
