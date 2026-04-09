@@ -164,7 +164,10 @@ test("task log search also matches work log bodies", () => {
     ),
     ["b"],
   );
-  assert.deepEqual(filterTasks(tasks, "all", "changelog").map((task) => task.id), []);
+  assert.deepEqual(
+    filterTasks(tasks, "all", "changelog").map((task) => task.id),
+    [],
+  );
 });
 
 test("validates date order", () => {
@@ -211,7 +214,10 @@ test("shows only the due indicator when the start date is in the past", () => {
     { dueDate: true, startDate: true },
   );
 
-  assert.deepEqual(indicators.map((indicator) => indicator.text), ["5d"]);
+  assert.deepEqual(
+    indicators.map((indicator) => indicator.text),
+    ["5d"],
+  );
 });
 
 test("omits disabled metadata types", () => {
@@ -228,7 +234,10 @@ test("omits disabled metadata types", () => {
     { dueDate: false, startDate: true },
   );
 
-  assert.deepEqual(indicators.map((indicator) => indicator.text), ["1d"]);
+  assert.deepEqual(
+    indicators.map((indicator) => indicator.text),
+    ["1d"],
+  );
 });
 
 test("menu bar task uses the earliest due date among active tasks", () => {
@@ -289,6 +298,26 @@ test("menu bar tasks sort by due date when at least one due date exists", () => 
   assert.deepEqual(
     getMenuBarTasks(tasks).map((task) => task.id),
     ["soon-due", "later-due", "no-due"],
+  );
+});
+
+test("menu bar tasks compare mixed legacy ISO and YYYY-MM-DD due dates by calendar day", () => {
+  const tasks = [
+    createTask({
+      id: "legacy-iso",
+      status: "open",
+      dueDate: "2026-04-03T07:00:00.000Z",
+    }),
+    createTask({
+      id: "date-only",
+      status: "open",
+      dueDate: "2026-04-02",
+    }),
+  ];
+
+  assert.deepEqual(
+    getMenuBarTasks(tasks).map((task) => task.id),
+    ["date-only", "legacy-iso"],
   );
 });
 

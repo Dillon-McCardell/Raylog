@@ -1,5 +1,4 @@
 import { toCanonicalDateString } from "./date";
-import type { RaylogRepository } from "./storage";
 import { validateTaskInput, validateWorkLogInput } from "./tasks";
 import type {
   TaskLogStatusBehavior,
@@ -17,20 +16,39 @@ export interface TaskFormValues {
   workLogs: TaskWorkLogRecord[];
 }
 
+export interface TaskFormRepository {
+  createTask(input: {
+    header: string;
+    body: string;
+    status: TaskStatus;
+    dueDate: string | null;
+    startDate: string | null;
+    workLogs: TaskWorkLogRecord[];
+  }): Promise<TaskRecord>;
+  updateTask(
+    taskId: string,
+    input: {
+      header: string;
+      body: string;
+      status: TaskStatus;
+      dueDate: string | null;
+      startDate: string | null;
+      workLogs: TaskWorkLogRecord[];
+    },
+  ): Promise<TaskRecord>;
+  createWorkLog(
+    taskId: string,
+    input: { body: string },
+  ): Promise<TaskWorkLogRecord>;
+  startTask(taskId: string): Promise<TaskRecord>;
+}
+
 export interface SubmitTaskFormOptions {
-  repository: RaylogRepository;
+  repository: TaskFormRepository;
   task?: TaskRecord;
   values: TaskFormValues;
   newWorkLogEntry: string;
   statusBehavior: TaskLogStatusBehavior;
-  onDidSave?: () => Promise<void> | void;
-  pop: () => void;
-  popToRoot: (options: { clearSearchBar: boolean }) => Promise<void>;
-  showToastImpl: (options: {
-    style: "success" | "failure";
-    title: string;
-    message?: string;
-  }) => Promise<unknown>;
   confirmAlertImpl?: (options: {
     title: string;
     message: string;
@@ -38,20 +56,19 @@ export interface SubmitTaskFormOptions {
   }) => Promise<boolean>;
 }
 
+export type SubmitTaskFormResult =
+  | { result: "missing_header" }
+  | { result: "validation_failed"; message: string }
+  | { result: "saved"; successTitle: string };
+
 export async function submitTaskForm({
   repository,
   task,
   values,
   newWorkLogEntry,
   statusBehavior,
-  onDidSave,
-  pop,
-  popToRoot,
-  showToastImpl,
   confirmAlertImpl,
-}: SubmitTaskFormOptions): Promise<
-  "missing_header" | "validation_failed" | "saved"
-> {
+}: SubmitTaskFormOptions): Promise<SubmitTaskFormResult> {
   const trimmedNewWorkLogEntry = newWorkLogEntry.trim();
   const payload = {
     header: values.header,
@@ -63,17 +80,15 @@ export async function submitTaskForm({
   };
 
   if (!values.header.trim()) {
-    return "missing_header";
+    return { result: "missing_header" };
   }
 
   const emptyWorkLog = values.workLogs.find((workLog) => !workLog.body.trim());
   if (emptyWorkLog) {
-    await showToastImpl({
-      style: "failure",
-      title: "Unable to save task",
+    return {
+      result: "validation_failed",
       message: "Work log entries cannot be empty.",
-    });
-    return "validation_failed";
+    };
   }
 
   if (trimmedNewWorkLogEntry) {
@@ -81,23 +96,19 @@ export async function submitTaskForm({
       body: trimmedNewWorkLogEntry,
     });
     if (workLogValidationMessage) {
-      await showToastImpl({
-        style: "failure",
-        title: "Unable to save task",
+      return {
+        result: "validation_failed",
         message: workLogValidationMessage,
-      });
-      return "validation_failed";
+      };
     }
   }
 
   const validationMessage = validateTaskInput(payload);
   if (validationMessage) {
-    await showToastImpl({
-      style: "failure",
-      title: "Unable to save task",
+    return {
+      result: "validation_failed",
       message: validationMessage,
-    });
-    return "validation_failed";
+    };
   }
 
   const savedTask = task
@@ -117,29 +128,17 @@ export async function submitTaskForm({
     );
   }
 
-  await showToastImpl({
-    style: "success",
-    title: task ? "Task updated" : "Task created",
-  });
-
-  if (onDidSave) {
-    await onDidSave();
-  }
-
-  try {
-    pop();
-  } catch {
-    await popToRoot({ clearSearchBar: true });
-  }
-
-  return "saved";
+  return {
+    result: "saved",
+    successTitle: task ? "Task updated" : "Task created",
+  };
 }
 
 async function maybeAdvanceTaskStatus(
   taskId: string,
   taskStatus: TaskStatus,
   statusBehavior: TaskLogStatusBehavior,
-  repository: RaylogRepository,
+  repository: TaskFormRepository,
   confirmAlertImpl?: SubmitTaskFormOptions["confirmAlertImpl"],
 ) {
   if (taskStatus !== "open") {
@@ -195,4 +194,40 @@ function buildUpdatedWorkLogs(
       updatedAt: now,
     };
   });
+}
+
+export interface DeleteFocusedWorkLogResult {
+  values: TaskFormValues;
+  pendingFocusWorkLogId?: string;
+}
+
+export function deleteFocusedWorkLog(
+  values: TaskFormValues,
+  focusedWorkLogId?: string,
+): DeleteFocusedWorkLogResult | undefined {
+  if (!focusedWorkLogId) {
+    return undefined;
+  }
+
+  const deletedIndex = values.workLogs.findIndex(
+    (workLog) => workLog.id === focusedWorkLogId,
+  );
+
+  if (deletedIndex < 0) {
+    return undefined;
+  }
+
+  const workLogs = values.workLogs.filter(
+    (workLog) => workLog.id !== focusedWorkLogId,
+  );
+  const nextFocusedWorkLog =
+    workLogs[deletedIndex] ?? workLogs[deletedIndex - 1];
+
+  return {
+    values: {
+      ...values,
+      workLogs,
+    },
+    pendingFocusWorkLogId: nextFocusedWorkLog?.id,
+  };
 }

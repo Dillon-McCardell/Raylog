@@ -1,20 +1,9 @@
-import {
-  Action,
-  ActionPanel,
-  Alert,
-  Form,
-  Icon,
-  Toast,
-  confirmAlert,
-  popToRoot,
-  showToast,
-  useNavigation,
-} from "@raycast/api";
+import { Action, ActionPanel, Form, Icon, useNavigation } from "@raycast/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fromCanonicalDateString } from "../lib/date";
-import { RaylogRepository } from "../lib/storage";
-import { showTaskMutationFailureToast } from "../lib/task-actions";
-import { submitTaskForm, type TaskFormValues } from "../lib/task-form-submit";
+import { type TaskFormController } from "../lib/task-form-controller";
+import { createDefaultTaskFormController } from "../lib/task-form-controller-runtime";
+import type { TaskFormValues } from "../lib/task-form-submit";
 import { getTaskStatusLabel } from "../lib/tasks";
 import type {
   TaskLogStatusBehavior,
@@ -31,6 +20,7 @@ export interface TaskFormProps {
   onDidSave?: () => Promise<void> | void;
   initialFocus?: TaskFormInitialFocus;
   statusBehavior?: TaskLogStatusBehavior;
+  controller?: TaskFormController;
 }
 
 export default function TaskForm({
@@ -39,9 +29,13 @@ export default function TaskForm({
   onDidSave,
   initialFocus = "header",
   statusBehavior = "auto_start",
+  controller,
 }: TaskFormProps) {
   const { pop } = useNavigation();
-  const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
+  const taskFormController = useMemo(
+    () => controller ?? createDefaultTaskFormController(notePath, { pop }),
+    [controller, notePath, pop],
+  );
   const isEditing = Boolean(task);
   const [values, setValues] = useState<TaskFormValues>({
     header: task?.header ?? "",
@@ -89,81 +83,31 @@ export default function TaskForm({
   }, [initialFocus]);
 
   async function handleSubmit() {
-    try {
-      const result = await submitTaskForm({
-        repository,
-        task,
-        values,
-        newWorkLogEntry,
-        statusBehavior,
-        onDidSave,
-        pop,
-        popToRoot,
-        showToastImpl: async ({ style, title, message }) =>
-          showToast({
-            style:
-              style === "success" ? Toast.Style.Success : Toast.Style.Failure,
-            title,
-            message,
-          }),
-        confirmAlertImpl: async ({ title, message, primaryAction }) =>
-          confirmAlert({
-            title,
-            message,
-            primaryAction: {
-              title: primaryAction.title,
-              style: Alert.ActionStyle.Default,
-            },
-          }),
-      });
+    const result = await taskFormController.submit({
+      task,
+      values,
+      newWorkLogEntry,
+      statusBehavior,
+      onDidSave,
+    });
 
-      if (result === "missing_header") {
-        setHeaderError("Header is required");
-      }
-    } catch (error) {
-      await showTaskMutationFailureToast(
-        error,
-        isEditing ? "Unable to update task" : "Unable to create task",
-        isEditing ? "Unable to update task." : "Unable to create task.",
-      );
+    if (result === "missing_header") {
+      setHeaderError("Header is required");
     }
   }
 
   async function handleDeleteFocusedWorkLog() {
-    if (!focusedWorkLogId) {
+    const result = await taskFormController.deleteFocusedWorkLog({
+      values,
+      focusedWorkLogId,
+    });
+
+    if (!result) {
       return;
     }
 
-    const confirmed = await confirmAlert({
-      title: "Delete work log?",
-      message: "This removes the selected work log from the task.",
-      primaryAction: {
-        title: "Delete Work Log",
-        style: Alert.ActionStyle.Destructive,
-      },
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    setValues((currentValues) => {
-      const deletedIndex = currentValues.workLogs.findIndex(
-        (workLog) => workLog.id === focusedWorkLogId,
-      );
-      const workLogs = currentValues.workLogs.filter(
-        (workLog) => workLog.id !== focusedWorkLogId,
-      );
-      const nextFocusedWorkLog =
-        workLogs[deletedIndex] ?? workLogs[deletedIndex - 1];
-
-      setPendingFocusWorkLogId(nextFocusedWorkLog?.id);
-
-      return {
-        ...currentValues,
-        workLogs,
-      };
-    });
+    setValues(result.values);
+    setPendingFocusWorkLogId(result.pendingFocusWorkLogId);
     setFocusedWorkLogId(undefined);
   }
 

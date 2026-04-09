@@ -5,9 +5,10 @@ import {
   buildTaskListActionSpecs,
 } from "../src/lib/task-flow";
 import {
-  submitTaskForm,
+  createTaskFormController,
+  deleteFocusedWorkLog,
   type TaskFormValues,
-} from "../src/lib/task-form-submit";
+} from "../src/lib/task-form-controller";
 import { formatTaskDate } from "../src/lib/date";
 import type { TaskRecord } from "../src/lib/types";
 
@@ -105,8 +106,7 @@ test("TaskDetailView Cmd+Shift+C completes the task and reloads in place", async
 
 test("TaskForm save from log-focused entry triggers parent reload callbacks and returns to the previous screen", async () => {
   const events: string[] = [];
-
-  const result = await submitTaskForm({
+  const controller = createController({
     repository: createRepositoryStub({
       updateTask: async () => createTask(),
       createWorkLog: async () => {
@@ -123,6 +123,15 @@ test("TaskForm save from log-focused entry triggers parent reload callbacks and 
         return createTask({ status: "in_progress" });
       },
     }),
+    pop: () => {
+      events.push("pop");
+    },
+    popToRootImpl: async () => {
+      events.push("pop-to-root");
+    },
+  });
+
+  const result = await controller.submit({
     task: createTask(),
     values: createTaskFormValues(),
     newWorkLogEntry: "Logged progress",
@@ -130,13 +139,6 @@ test("TaskForm save from log-focused entry triggers parent reload callbacks and 
     onDidSave: async () => {
       events.push("reload");
     },
-    pop: () => {
-      events.push("pop");
-    },
-    popToRoot: async () => {
-      events.push("pop-to-root");
-    },
-    showToastImpl: async () => undefined,
   });
 
   assert.equal(result, "saved");
@@ -145,11 +147,19 @@ test("TaskForm save from log-focused entry triggers parent reload callbacks and 
 
 test("TaskForm save returns to the originating screen after editing from List Tasks", async () => {
   const events: string[] = [];
-
-  await submitTaskForm({
+  const controller = createController({
     repository: createRepositoryStub({
       updateTask: async () => createTask(),
     }),
+    pop: () => {
+      events.push("pop");
+    },
+    popToRootImpl: async () => {
+      events.push("pop-to-root");
+    },
+  });
+
+  await controller.submit({
     task: createTask(),
     values: createTaskFormValues(),
     newWorkLogEntry: "",
@@ -157,13 +167,6 @@ test("TaskForm save returns to the originating screen after editing from List Ta
     onDidSave: async () => {
       events.push("list-reload");
     },
-    pop: () => {
-      events.push("pop");
-    },
-    popToRoot: async () => {
-      events.push("pop-to-root");
-    },
-    showToastImpl: async () => undefined,
   });
 
   assert.deepEqual(events, ["list-reload", "pop"]);
@@ -171,11 +174,19 @@ test("TaskForm save returns to the originating screen after editing from List Ta
 
 test("TaskForm save returns to TaskDetailView after editing from View Task", async () => {
   const events: string[] = [];
-
-  await submitTaskForm({
+  const controller = createController({
     repository: createRepositoryStub({
       updateTask: async () => createTask(),
     }),
+    pop: () => {
+      events.push("pop");
+    },
+    popToRootImpl: async () => {
+      events.push("pop-to-root");
+    },
+  });
+
+  await controller.submit({
     task: createTask(),
     values: createTaskFormValues(),
     newWorkLogEntry: "",
@@ -183,13 +194,6 @@ test("TaskForm save returns to TaskDetailView after editing from View Task", asy
     onDidSave: async () => {
       events.push("detail-reload");
     },
-    pop: () => {
-      events.push("pop");
-    },
-    popToRoot: async () => {
-      events.push("pop-to-root");
-    },
-    showToastImpl: async () => undefined,
   });
 
   assert.deepEqual(events, ["detail-reload", "pop"]);
@@ -203,7 +207,7 @@ test("TaskForm preserves the exact due and start timestamps on save", async () =
       }
     | undefined;
 
-  await submitTaskForm({
+  const controller = createController({
     repository: createRepositoryStub({
       updateTask: async (_taskId, values) => {
         savedPayload = values as {
@@ -213,6 +217,9 @@ test("TaskForm preserves the exact due and start timestamps on save", async () =
         return createTask();
       },
     }),
+  });
+
+  await controller.submit({
     task: createTask(),
     values: createTaskFormValues({
       dueDate: new Date("2026-04-10T15:45:00.000Z"),
@@ -220,13 +227,10 @@ test("TaskForm preserves the exact due and start timestamps on save", async () =
     }),
     newWorkLogEntry: "",
     statusBehavior: "auto_start",
-    pop: () => undefined,
-    popToRoot: async () => undefined,
-    showToastImpl: async () => undefined,
   });
 
-  assert.equal(savedPayload?.dueDate, "2026-04-10T15:45:00.000Z");
-  assert.equal(savedPayload?.startDate, "2026-04-09T08:30:00.000Z");
+  assert.equal(savedPayload?.dueDate, "2026-04-10");
+  assert.equal(savedPayload?.startDate, "2026-04-09");
 });
 
 test("formatTaskDate includes time when a timestamp is present", () => {
@@ -235,6 +239,25 @@ test("formatTaskDate includes time when a timestamp is present", () => {
 
   assert.equal(formatTaskDate(localTimedValue), "Apr 10, 2026 3:45 PM");
   assert.equal(formatTaskDate(localMidnightValue), "Apr 10, 2026");
+});
+
+test("deleteFocusedWorkLog removes the focused work log and selects the next entry", () => {
+  const result = deleteFocusedWorkLog(
+    createTaskFormValues({
+      workLogs: [
+        createWorkLog({ id: "a" }),
+        createWorkLog({ id: "b" }),
+        createWorkLog({ id: "c" }),
+      ],
+    }),
+    "b",
+  );
+
+  assert.deepEqual(
+    result?.values.workLogs.map((workLog) => workLog.id),
+    ["a", "c"],
+  );
+  assert.equal(result?.pendingFocusWorkLogId, "c");
 });
 
 function createRepositoryStub(
@@ -275,6 +298,20 @@ function createRepositoryStub(
   } as never;
 }
 
+function createController(
+  overrides: Partial<Parameters<typeof createTaskFormController>[0]> = {},
+) {
+  return createTaskFormController({
+    repository: createRepositoryStub(),
+    pop: () => undefined,
+    popToRootImpl: async () => undefined,
+    showToastImpl: async () => undefined,
+    confirmAlertImpl: async () => true,
+    showTaskMutationFailureToastImpl: async () => undefined,
+    ...overrides,
+  });
+}
+
 function createTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
   return {
     id: overrides.id ?? "task-id",
@@ -287,6 +324,17 @@ function createTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
     completedAt: overrides.completedAt ?? null,
     createdAt: overrides.createdAt ?? "2026-04-03T00:00:00.000Z",
     updatedAt: overrides.updatedAt ?? "2026-04-03T00:00:00.000Z",
+  };
+}
+
+function createWorkLog(
+  overrides: Partial<TaskRecord["workLogs"][number]> = {},
+): TaskRecord["workLogs"][number] {
+  return {
+    id: overrides.id ?? "log-id",
+    body: overrides.body ?? "Logged progress",
+    createdAt: overrides.createdAt ?? "2026-04-03T00:00:00.000Z",
+    updatedAt: overrides.updatedAt ?? null,
   };
 }
 

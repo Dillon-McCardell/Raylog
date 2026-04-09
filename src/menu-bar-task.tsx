@@ -9,33 +9,17 @@ import {
   showToast,
 } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getConfiguredStorageNotePath } from "./lib/config";
-import {
-  getMenuBarTask,
-  getMenuBarTasks,
-  getRelativeDueLabel,
-  isActiveTaskStatus,
-} from "./lib/tasks";
-import { getRaylogErrorMessage, RaylogRepository } from "./lib/storage";
+import { getRelativeDueLabel, isActiveTaskStatus } from "./lib/tasks";
+import { readMenuBarCache } from "./lib/menu-bar-cache";
+import { refreshMenuBarState } from "./lib/menu-bar-state";
+import { createMenuBarRepository } from "./lib/menu-bar-state-runtime";
+import { getRaylogErrorMessage } from "./lib/storage";
 import type { TaskRecord } from "./lib/types";
 
-const MENU_BAR_CACHE_KEY = "menu-bar-state";
-const cache = new Cache();
-
-interface MenuBarCacheState {
-  currentTask?: TaskRecord;
-  menuTasks: TaskRecord[];
-  title: string;
-  tooltip: string;
-}
-
 export default function Command() {
-  const notePath = getConfiguredStorageNotePath();
-  const repository = useMemo(
-    () => (notePath ? new RaylogRepository(notePath) : undefined),
-    [notePath],
-  );
-  const cachedState = useMemo(() => readMenuBarCache(), []);
+  const repository = useMemo(() => createMenuBarRepository(), []);
+  const cacheStore = useMemo(() => new Cache(), []);
+  const cachedState = useMemo(() => readMenuBarCache(cacheStore), [cacheStore]);
   const [isLoading, setIsLoading] = useState(!repository && !cachedState);
   const [currentTask, setCurrentTask] = useState<TaskRecord | undefined>(
     cachedState?.currentTask,
@@ -49,35 +33,16 @@ export default function Command() {
   );
 
   const loadMenuBarTasks = useCallback(async () => {
-    if (!repository) {
-      setCurrentTask(undefined);
-      setMenuTasks([]);
-      setTitle("Set Up Raylog");
-      setTooltip("Configure a Raylog storage note in extension preferences.");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const tasks = await repository.listTasks();
-      const nextCurrentTask = getMenuBarTask(tasks);
-      const nextMenuTasks = getMenuBarTasks(tasks, 5);
-      const nextState = buildMenuBarState(nextCurrentTask, nextMenuTasks);
-
-      setCurrentTask(nextState.currentTask);
-      setMenuTasks(nextState.menuTasks);
-      setTitle(nextState.title);
-      setTooltip(nextState.tooltip);
-      writeMenuBarCache(nextState);
-    } catch (error) {
-      setCurrentTask(undefined);
-      setMenuTasks([]);
-      setTitle("Raylog Error");
-      setTooltip(getRaylogErrorMessage(error, "Unable to load Raylog tasks."));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [repository]);
+    const nextState = await refreshMenuBarState({
+      repository,
+      cacheStore,
+    });
+    setCurrentTask(nextState.currentTask);
+    setMenuTasks(nextState.menuTasks);
+    setTitle(nextState.title);
+    setTooltip(nextState.tooltip);
+    setIsLoading(false);
+  }, [cacheStore, repository]);
 
   useEffect(() => {
     void loadMenuBarTasks();
@@ -179,48 +144,7 @@ export default function Command() {
   );
 }
 
-function buildMenuBarState(
-  task: TaskRecord | undefined,
-  menuTasks: TaskRecord[],
-): MenuBarCacheState {
-  if (!task) {
-    return {
-      currentTask: undefined,
-      menuTasks,
-      title: "No Tasks",
-      tooltip: "No non-archived Raylog tasks are available.",
-    };
-  }
-
-  return {
-    currentTask: task,
-    menuTasks,
-    title: task.header,
-    tooltip: task.dueDate
-      ? `Next due task: ${task.header}`
-      : `First task: ${task.header}`,
-  };
-}
-
 function buildTaskSubtitle(task: TaskRecord): string | undefined {
   const relativeDueLabel = getRelativeDueLabel(task.dueDate);
   return relativeDueLabel ? `- ${relativeDueLabel}` : undefined;
-}
-
-function readMenuBarCache(): MenuBarCacheState | undefined {
-  const cachedValue = cache.get(MENU_BAR_CACHE_KEY);
-  if (!cachedValue) {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(cachedValue) as MenuBarCacheState;
-  } catch {
-    cache.remove(MENU_BAR_CACHE_KEY);
-    return undefined;
-  }
-}
-
-function writeMenuBarCache(state: MenuBarCacheState): void {
-  cache.set(MENU_BAR_CACHE_KEY, JSON.stringify(state));
 }

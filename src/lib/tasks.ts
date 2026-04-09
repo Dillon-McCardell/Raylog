@@ -1,4 +1,5 @@
 import { differenceInCalendarDays } from "date-fns";
+import { compareCanonicalDateStrings, fromCanonicalDateString } from "./date";
 import type {
   TaskInput,
   TaskRecord,
@@ -219,7 +220,10 @@ export function getMenuBarTasks(tasks: TaskRecord[], limit = 5): TaskRecord[] {
   return [...visibleTasks]
     .sort((left, right) => {
       if (left.dueDate && right.dueDate) {
-        const dueDateComparison = left.dueDate.localeCompare(right.dueDate);
+        const dueDateComparison = compareCanonicalDateStrings(
+          left.dueDate,
+          right.dueDate,
+        );
         if (dueDateComparison !== 0) {
           return dueDateComparison;
         }
@@ -272,7 +276,7 @@ function compareOpenTaskUrgency(left: TaskRecord, right: TaskRecord): number {
   }
 
   if (left.dueDate && right.dueDate) {
-    return left.dueDate.localeCompare(right.dueDate);
+    return compareCanonicalDateStrings(left.dueDate, right.dueDate);
   }
 
   return 0;
@@ -371,12 +375,7 @@ function buildCountdownTooltip(
 }
 
 function parseTaskDate(value?: string | null): Date | null {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return fromCanonicalDateString(value);
 }
 
 function startOfToday(): Date {

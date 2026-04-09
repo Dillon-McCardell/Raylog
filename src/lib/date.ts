@@ -1,16 +1,23 @@
 import { format } from "date-fns";
 
+const CANONICAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export function toCanonicalDateString(value?: Date | null): string | null {
   if (!value) {
     return null;
   }
 
-  return value.toISOString();
+  return format(value, "yyyy-MM-dd");
 }
 
 export function fromCanonicalDateString(value?: string | null): Date | null {
   if (!value) {
     return null;
+  }
+
+  if (CANONICAL_DATE_PATTERN.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
   }
 
   const parsed = new Date(value);
@@ -30,4 +37,37 @@ export function formatTaskDate(value?: string | null): string {
     parsed.getMilliseconds() !== 0;
 
   return format(parsed, hasTime ? "MMM d, yyyy h:mm a" : "MMM d, yyyy");
+}
+
+export function compareCanonicalDateStrings(
+  left?: string | null,
+  right?: string | null,
+): number {
+  const leftDate = fromCanonicalDateString(left);
+  const rightDate = fromCanonicalDateString(right);
+
+  if (!leftDate && !rightDate) {
+    return 0;
+  }
+
+  if (!leftDate) {
+    return 1;
+  }
+
+  if (!rightDate) {
+    return -1;
+  }
+
+  const leftCalendarDate = new Date(
+    leftDate.getFullYear(),
+    leftDate.getMonth(),
+    leftDate.getDate(),
+  );
+  const rightCalendarDate = new Date(
+    rightDate.getFullYear(),
+    rightDate.getMonth(),
+    rightDate.getDate(),
+  );
+
+  return leftCalendarDate.getTime() - rightCalendarDate.getTime();
 }
