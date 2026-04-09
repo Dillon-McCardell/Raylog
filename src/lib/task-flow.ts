@@ -161,6 +161,7 @@ function buildEditActionSpecs(
           notePath: options.notePath,
           statusBehavior: options.taskLogStatusBehavior,
           onDidSave: options.onReload,
+          resetOnSave: true,
         },
       },
     },

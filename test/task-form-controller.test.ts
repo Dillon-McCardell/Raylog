@@ -87,6 +87,34 @@ test("controller falls back to popToRoot when pop throws", async () => {
   assert.deepEqual(events, ["pop", "pop-to-root"]);
 });
 
+test("controller can stay on the current screen after saving", async () => {
+  const events: string[] = [];
+  const controller = createTaskFormController({
+    repository: createRepositoryStub(),
+    pop: () => {
+      events.push("pop");
+    },
+    popToRootImpl: async () => {
+      events.push("pop-to-root");
+    },
+    afterSaveImpl: async () => {
+      events.push("after-save");
+    },
+    showToastImpl: async () => undefined,
+    confirmAlertImpl: async () => true,
+    showTaskMutationFailureToastImpl: async () => undefined,
+  });
+
+  const result = await controller.submit({
+    values: createTaskFormValues(),
+    newWorkLogEntry: "",
+    statusBehavior: "auto_start",
+  });
+
+  assert.equal(result, "saved");
+  assert.deepEqual(events, ["after-save"]);
+});
+
 test("controller routes unexpected persistence failures to the mutation error toast", async () => {
   const failures: Array<{ title: string; fallbackMessage: string }> = [];
   const controller = createTaskFormController({

@@ -19,6 +19,7 @@ export interface TaskFormProps {
   task?: TaskRecord;
   onDidSave?: () => Promise<void> | void;
   initialFocus?: TaskFormInitialFocus;
+  resetOnSave?: boolean;
   statusBehavior?: TaskLogStatusBehavior;
   controller?: TaskFormController;
 }
@@ -28,13 +29,19 @@ export default function TaskForm({
   task,
   onDidSave,
   initialFocus = "header",
+  resetOnSave = false,
   statusBehavior = "auto_start",
   controller,
 }: TaskFormProps) {
   const { pop } = useNavigation();
   const taskFormController = useMemo(
-    () => controller ?? createDefaultTaskFormController(notePath, { pop }),
-    [controller, notePath, pop],
+    () =>
+      controller ??
+      createDefaultTaskFormController(notePath, {
+        pop,
+        afterSaveImpl: resetOnSave && !task ? () => undefined : undefined,
+      }),
+    [controller, notePath, pop, resetOnSave, task],
   );
   const isEditing = Boolean(task);
   const [values, setValues] = useState<TaskFormValues>({
@@ -93,6 +100,22 @@ export default function TaskForm({
 
     if (result === "missing_header") {
       setHeaderError("Header is required");
+    }
+
+    if (result === "saved" && resetOnSave && !isEditing) {
+      setValues({
+        header: "",
+        body: "",
+        status: "open",
+        dueDate: null,
+        startDate: null,
+        workLogs: [],
+      });
+      setHeaderError(undefined);
+      setNewWorkLogEntry("");
+      setFocusedWorkLogId(undefined);
+      setPendingFocusWorkLogId(undefined);
+      headerRef.current?.focus();
     }
   }
 

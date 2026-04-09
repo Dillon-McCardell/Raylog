@@ -59,6 +59,22 @@ test("TaskListScreen Cmd+E opens TaskForm for the selected task", () => {
   assert.equal((editTask?.target.props as any).task.id, "task-id");
 });
 
+test("TaskListScreen Cmd+N keeps the add form open and resets it after save", () => {
+  const specs = buildTaskListActionSpecs({
+    notePath: "/tmp/raylog-test.md",
+    repository: createRepositoryStub(),
+    onReload: async () => undefined,
+    task: createTask(),
+    taskLogStatusBehavior: "auto_start",
+  });
+
+  const addTask = specs.find((spec) => spec.title === "Add Task");
+  assert.deepEqual(addTask?.shortcut, { modifiers: ["cmd"], key: "n" });
+  assert.ok(addTask?.kind === "target");
+  assert.equal(addTask?.target.type, "TaskForm");
+  assert.equal(addTask?.target.props.resetOnSave, true);
+});
+
 test("TaskDetailView default action opens TaskForm focused on the new log field", () => {
   const specs = buildTaskDetailActionSpecs({
     notePath: "/tmp/raylog-test.md",

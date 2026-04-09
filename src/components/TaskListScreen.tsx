@@ -200,7 +200,11 @@ export default function TaskListScreen({
                   title="Add Task"
                   icon={Icon.Plus}
                   target={
-                    <TaskForm notePath={notePath} onDidSave={loadTasks} />
+                    <TaskForm
+                      notePath={notePath}
+                      onDidSave={loadTasks}
+                      resetOnSave
+                    />
                   }
                   shortcut={{ modifiers: ["cmd"], key: "n" }}
                 />

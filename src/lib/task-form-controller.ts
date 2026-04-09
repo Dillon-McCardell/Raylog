@@ -31,6 +31,7 @@ interface TaskFormControllerDependencies {
   repository: TaskFormRepository;
   pop: () => void;
   popToRootImpl: (options: { clearSearchBar: boolean }) => Promise<void>;
+  afterSaveImpl?: () => Promise<void> | void;
   showToastImpl: (options: {
     style: "success" | "failure";
     title: string;
@@ -81,10 +82,14 @@ export function createTaskFormController(
           await onDidSave();
         }
 
-        try {
-          dependencies.pop();
-        } catch {
-          await dependencies.popToRootImpl({ clearSearchBar: true });
+        if (dependencies.afterSaveImpl) {
+          await dependencies.afterSaveImpl();
+        } else {
+          try {
+            dependencies.pop();
+          } catch {
+            await dependencies.popToRootImpl({ clearSearchBar: true });
+          }
         }
 
         return "saved";
