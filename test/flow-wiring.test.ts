@@ -8,6 +8,7 @@ import {
   submitTaskForm,
   type TaskFormValues,
 } from "../src/lib/task-form-submit";
+import { formatTaskDate } from "../src/lib/date";
 import type { TaskRecord } from "../src/lib/types";
 
 test("TaskListScreen Enter opens TaskDetailView for the selected task", () => {
@@ -194,6 +195,48 @@ test("TaskForm save returns to TaskDetailView after editing from View Task", asy
   assert.deepEqual(events, ["detail-reload", "pop"]);
 });
 
+test("TaskForm preserves the exact due and start timestamps on save", async () => {
+  let savedPayload:
+    | {
+        dueDate?: string | null;
+        startDate?: string | null;
+      }
+    | undefined;
+
+  await submitTaskForm({
+    repository: createRepositoryStub({
+      updateTask: async (_taskId, values) => {
+        savedPayload = values as {
+          dueDate?: string | null;
+          startDate?: string | null;
+        };
+        return createTask();
+      },
+    }),
+    task: createTask(),
+    values: createTaskFormValues({
+      dueDate: new Date("2026-04-10T15:45:00.000Z"),
+      startDate: new Date("2026-04-09T08:30:00.000Z"),
+    }),
+    newWorkLogEntry: "",
+    statusBehavior: "auto_start",
+    pop: () => undefined,
+    popToRoot: async () => undefined,
+    showToastImpl: async () => undefined,
+  });
+
+  assert.equal(savedPayload?.dueDate, "2026-04-10T15:45:00.000Z");
+  assert.equal(savedPayload?.startDate, "2026-04-09T08:30:00.000Z");
+});
+
+test("formatTaskDate includes time when a timestamp is present", () => {
+  const localTimedValue = new Date(2026, 3, 10, 15, 45, 0, 0).toISOString();
+  const localMidnightValue = new Date(2026, 3, 10, 0, 0, 0, 0).toISOString();
+
+  assert.equal(formatTaskDate(localTimedValue), "Apr 10, 2026 3:45 PM");
+  assert.equal(formatTaskDate(localMidnightValue), "Apr 10, 2026");
+});
+
 function createRepositoryStub(
   overrides: Partial<{
     completeTask: (taskId: string) => Promise<TaskRecord>;
@@ -247,13 +290,15 @@ function createTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
   };
 }
 
-function createTaskFormValues(): TaskFormValues {
+function createTaskFormValues(
+  overrides: Partial<TaskFormValues> = {},
+): TaskFormValues {
   return {
-    header: "Task",
-    body: "Task body",
-    status: "open",
-    dueDate: null,
-    startDate: null,
-    workLogs: [],
+    header: overrides.header ?? "Task",
+    body: overrides.body ?? "Task body",
+    status: overrides.status ?? "open",
+    dueDate: overrides.dueDate ?? null,
+    startDate: overrides.startDate ?? null,
+    workLogs: overrides.workLogs ?? [],
   };
 }
