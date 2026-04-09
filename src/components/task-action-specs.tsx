@@ -1,5 +1,5 @@
 import { Action, Alert, Icon, confirmAlert } from "@raycast/api";
-import type { ReactElement } from "react";
+import type { ComponentProps } from "react";
 import {
   buildTaskDetailActionSpecs as buildTaskDetailFlowSpecs,
   buildTaskFilterActionSpecs as buildTaskFilterFlowSpecs,
@@ -16,12 +16,15 @@ import type {
 import TaskDetailView from "./TaskDetailView";
 import TaskForm from "./TaskForm";
 
+type TaskDetailViewComponentProps = ComponentProps<typeof TaskDetailView>;
+type TaskFormComponentProps = ComponentProps<typeof TaskForm>;
+
 export interface TaskActionSpec {
   title: string;
   icon?: Icon;
-  shortcut?: { modifiers: string[]; key: string };
+  shortcut?: TaskFlowSpec["shortcut"];
   style?: Action.Style;
-  target?: ReactElement;
+  target?: ComponentProps<typeof Action.Push>["target"];
   onAction?: () => Promise<void> | void;
   targetType?: string;
 }
@@ -59,7 +62,7 @@ function adaptFlowSpec(spec: TaskFlowSpec): TaskActionSpec {
     return {
       title: spec.title,
       icon: getActionIcon(spec.title),
-      shortcut: spec.shortcut as TaskActionSpec["shortcut"],
+      shortcut: spec.shortcut,
       targetType: spec.target.type,
       target: renderTarget(spec.target),
     };
@@ -68,7 +71,7 @@ function adaptFlowSpec(spec: TaskFlowSpec): TaskActionSpec {
   return {
     title: spec.title,
     icon: getActionIcon(spec.title),
-    shortcut: spec.shortcut as TaskActionSpec["shortcut"],
+    shortcut: spec.shortcut,
     style: spec.destructive ? Action.Style.Destructive : undefined,
     onAction: buildMutationAction(spec),
   };
@@ -109,12 +112,18 @@ function getActionIcon(title: string): Icon | undefined {
 
 function renderTarget(
   target: Extract<TaskFlowSpec, { kind: "target" }>["target"],
-): ReactElement {
+): ComponentProps<typeof Action.Push>["target"] {
   switch (target.type) {
     case "TaskDetailView":
-      return <TaskDetailView {...(target.props as any)} />;
+      return (
+        <TaskDetailView
+          {...(target.props as unknown as TaskDetailViewComponentProps)}
+        />
+      );
     case "TaskForm":
-      return <TaskForm {...(target.props as any)} />;
+      return (
+        <TaskForm {...(target.props as unknown as TaskFormComponentProps)} />
+      );
   }
 }
 

@@ -23,9 +23,9 @@ import type {
   TaskWorkLogRecord,
 } from "../lib/types";
 
-type TaskFormInitialFocus = "header" | "new_work_log";
+export type TaskFormInitialFocus = "header" | "new_work_log";
 
-interface TaskFormProps {
+export interface TaskFormProps {
   notePath: string;
   task?: TaskRecord;
   onDidSave?: () => Promise<void> | void;

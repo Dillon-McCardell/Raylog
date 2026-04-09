@@ -378,12 +378,12 @@ function getIndicatorIcon(color: "red" | "blue"): string {
 function RenderedAction({ spec }: { spec: TaskActionSpec }) {
   if (spec.target) {
     return (
-        <Action.Push
-          title={spec.title}
-          icon={spec.icon}
-          shortcut={spec.shortcut as any}
-          target={spec.target as any}
-        />
+      <Action.Push
+        title={spec.title}
+        icon={spec.icon}
+        shortcut={spec.shortcut}
+        target={spec.target}
+      />
     );
   }
 
@@ -391,7 +391,7 @@ function RenderedAction({ spec }: { spec: TaskActionSpec }) {
     <Action
       title={spec.title}
       icon={spec.icon}
-      shortcut={spec.shortcut as any}
+      shortcut={spec.shortcut}
       style={spec.style}
       onAction={spec.onAction}
     />

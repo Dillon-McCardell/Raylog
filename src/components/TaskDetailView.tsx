@@ -10,7 +10,7 @@ import { buildTaskDetailMarkdown } from "../lib/task-presentation";
 import { getRaylogErrorMessage, RaylogRepository } from "../lib/storage";
 import type { TaskLogStatusBehavior, TaskRecord } from "../lib/types";
 
-interface TaskDetailViewProps {
+export interface TaskDetailViewProps {
   notePath: string;
   taskId: string;
   statusBehavior: TaskLogStatusBehavior;
@@ -90,6 +90,7 @@ export default function TaskDetailView({
       isLoading={isLoading}
       navigationTitle="View Task"
       markdown={buildTaskDetailMarkdown(task, {
+        includeTopSpacer: true,
         emptyBodyFallback: "_No body_",
       })}
       metadata={
@@ -148,12 +149,12 @@ export default function TaskDetailView({
 function RenderedAction({ spec }: { spec: TaskActionSpec }) {
   if (spec.target) {
     return (
-        <Action.Push
-          title={spec.title}
-          icon={spec.icon}
-          shortcut={spec.shortcut as any}
-          target={spec.target as any}
-        />
+      <Action.Push
+        title={spec.title}
+        icon={spec.icon}
+        shortcut={spec.shortcut}
+        target={spec.target}
+      />
     );
   }
 
@@ -161,7 +162,7 @@ function RenderedAction({ spec }: { spec: TaskActionSpec }) {
     <Action
       title={spec.title}
       icon={spec.icon}
-      shortcut={spec.shortcut as any}
+      shortcut={spec.shortcut}
       style={spec.style}
       onAction={spec.onAction}
     />

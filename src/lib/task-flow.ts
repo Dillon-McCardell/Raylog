@@ -1,3 +1,4 @@
+import type { Keyboard } from "@raycast/api";
 import type { RaylogRepository } from "./storage";
 import type {
   TaskLogStatusBehavior,
@@ -12,7 +13,7 @@ export interface TaskActionTargetSpec {
 
 interface TaskActionBaseSpec {
   title: string;
-  shortcut?: { modifiers: string[]; key: string };
+  shortcut?: Keyboard.Shortcut;
 }
 
 export interface TaskTargetActionSpec extends TaskActionBaseSpec {
@@ -47,34 +48,32 @@ export function buildTaskFilterActionSpecs(
   onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void,
 ): TaskMutationActionSpec[] {
   return [
-    createFilterActionSpec(
-      "Show All Tasks",
-      { modifiers: ["cmd"], key: "1" },
-      () => onSelectFilter("all"),
+    createFilterActionSpec("Show All Tasks", createShortcut(["cmd"], "1"), () =>
+      onSelectFilter("all"),
     ),
     createFilterActionSpec(
       "Show Open Tasks",
-      { modifiers: ["cmd"], key: "2" },
+      createShortcut(["cmd"], "2"),
       () => onSelectFilter("open"),
     ),
     createFilterActionSpec(
       "Show in Progress",
-      { modifiers: ["cmd"], key: "3" },
+      createShortcut(["cmd"], "3"),
       () => onSelectFilter("in_progress"),
     ),
     createFilterActionSpec(
       "Show Due Soon Tasks",
-      { modifiers: ["cmd"], key: "4" },
+      createShortcut(["cmd"], "4"),
       () => onSelectFilter("due_soon"),
     ),
     createFilterActionSpec(
       "Show Done Tasks",
-      { modifiers: ["cmd"], key: "5" },
+      createShortcut(["cmd"], "5"),
       () => onSelectFilter("done"),
     ),
     createFilterActionSpec(
       "Show Archived Tasks",
-      { modifiers: ["cmd"], key: "6" },
+      createShortcut(["cmd"], "6"),
       () => onSelectFilter("archived"),
     ),
   ];
@@ -130,7 +129,7 @@ function buildEditActionSpecs(
     {
       kind: "target",
       title: "Log Work",
-      shortcut: { modifiers: ["cmd"], key: "l" },
+      shortcut: createShortcut(["cmd"], "l"),
       target: {
         type: "TaskForm",
         props: {
@@ -145,7 +144,7 @@ function buildEditActionSpecs(
     {
       kind: "target",
       title: "Edit Task",
-      shortcut: { modifiers: ["cmd"], key: "e" },
+      shortcut: createShortcut(["cmd"], "e"),
       target: {
         type: "TaskForm",
         props: {
@@ -159,7 +158,7 @@ function buildEditActionSpecs(
     {
       kind: "target",
       title: "Add Task",
-      shortcut: { modifiers: ["cmd"], key: "n" },
+      shortcut: createShortcut(["cmd"], "n"),
       target: {
         type: "TaskForm",
         props: {
@@ -182,7 +181,7 @@ function buildLifecycleActionSpecs(
       kind: "mutation",
       title: "Complete Task",
       mutation: "complete",
-      shortcut: { modifiers: ["cmd", "shift"], key: "c" },
+      shortcut: createShortcut(["cmd", "shift"], "c"),
       run: async () => {
         await options.repository.completeTask(options.task.id);
         await options.onReload();
@@ -195,7 +194,7 @@ function buildLifecycleActionSpecs(
       kind: "mutation",
       title: "Start Task",
       mutation: "start",
-      shortcut: { modifiers: ["cmd"], key: "s" },
+      shortcut: createShortcut(["cmd"], "s"),
       run: async () => {
         await options.repository.startTask(options.task.id);
         await options.onReload();
@@ -208,7 +207,7 @@ function buildLifecycleActionSpecs(
       kind: "mutation",
       title: "Reopen Task",
       mutation: "reopen",
-      shortcut: { modifiers: ["cmd"], key: "r" },
+      shortcut: createShortcut(["cmd"], "r"),
       run: async () => {
         await options.repository.reopenTask(options.task.id);
         await options.onReload();
@@ -221,7 +220,7 @@ function buildLifecycleActionSpecs(
       kind: "mutation",
       title: "Archive Task",
       mutation: "archive",
-      shortcut: { modifiers: ["cmd", "shift"], key: "a" },
+      shortcut: createShortcut(["cmd", "shift"], "a"),
       run: async () => {
         await options.repository.archiveTask(options.task.id);
         await options.onReload();
@@ -233,7 +232,7 @@ function buildLifecycleActionSpecs(
     kind: "mutation",
     title: "Delete Task",
     mutation: "delete",
-    shortcut: { modifiers: ["ctrl"], key: "x" },
+    shortcut: createShortcut(["ctrl"], "x"),
     destructive: true,
     run: async () => {
       await options.repository.deleteTask(options.task.id);
@@ -246,7 +245,7 @@ function buildLifecycleActionSpecs(
 
 function createFilterActionSpec(
   title: string,
-  shortcut: { modifiers: string[]; key: string },
+  shortcut: Keyboard.Shortcut,
   run: () => Promise<void> | void,
 ): TaskMutationActionSpec {
   return {
@@ -258,4 +257,11 @@ function createFilterActionSpec(
       await run();
     },
   };
+}
+
+function createShortcut(
+  modifiers: Keyboard.KeyModifier[],
+  key: Keyboard.KeyEquivalent,
+): Keyboard.Shortcut {
+  return { modifiers, key };
 }
