@@ -1,4 +1,4 @@
-import { Action, Alert, Icon, confirmAlert } from "@raycast/api";
+import { Action, Alert, confirmAlert } from "@raycast/api";
 import type { ComponentProps } from "react";
 import {
   buildTaskDetailActionSpecs as buildTaskDetailFlowSpecs,
@@ -8,6 +8,7 @@ import {
 } from "../lib/task-flow";
 import { runTaskMutationAction } from "../lib/task-actions";
 import type { RaylogRepository } from "../lib/storage";
+import { getTaskActionIcon } from "../lib/task-visuals";
 import type {
   TaskLogStatusBehavior,
   TaskRecord,
@@ -21,7 +22,7 @@ type TaskFormComponentProps = ComponentProps<typeof TaskForm>;
 
 export interface TaskActionSpec {
   title: string;
-  icon?: Icon;
+  icon?: ComponentProps<typeof Action>["icon"];
   shortcut?: TaskFlowSpec["shortcut"];
   style?: Action.Style;
   target?: ComponentProps<typeof Action.Push>["target"];
@@ -61,7 +62,7 @@ function adaptFlowSpec(spec: TaskFlowSpec): TaskActionSpec {
   if (spec.kind === "target") {
     return {
       title: spec.title,
-      icon: getActionIcon(spec.title),
+      icon: getTaskActionIcon(spec.title),
       shortcut: spec.shortcut,
       targetType: spec.target.type,
       target: renderTarget(spec.target),
@@ -70,44 +71,11 @@ function adaptFlowSpec(spec: TaskFlowSpec): TaskActionSpec {
 
   return {
     title: spec.title,
-    icon: getActionIcon(spec.title),
+    icon: getTaskActionIcon(spec.title),
     shortcut: spec.shortcut,
     style: spec.destructive ? Action.Style.Destructive : undefined,
     onAction: buildMutationAction(spec),
   };
-}
-
-function getActionIcon(title: string): Icon | undefined {
-  switch (title) {
-    case "Open Task":
-      return Icon.Eye;
-    case "Log Work":
-    case "Edit Task":
-      return Icon.Pencil;
-    case "Add Task":
-      return Icon.Plus;
-    case "Complete Task":
-    case "Show Done Tasks":
-      return Icon.CheckCircle;
-    case "Start Task":
-    case "Show In Progress":
-      return Icon.Play;
-    case "Reopen Task":
-      return Icon.ArrowCounterClockwise;
-    case "Archive Task":
-    case "Show Archived Tasks":
-      return Icon.Box;
-    case "Delete Task":
-      return Icon.Trash;
-    case "Show All Tasks":
-      return Icon.List;
-    case "Show Open":
-      return Icon.Circle;
-    case "Show Due Soon":
-      return Icon.Alarm;
-    default:
-      return undefined;
-  }
 }
 
 function renderTarget(
@@ -152,6 +120,7 @@ function buildMutationAction(
         const confirmed = await confirmAlert({
           title: "Delete task?",
           message: "This permanently removes the task from the storage note.",
+          icon: getTaskActionIcon("Delete Task"),
           primaryAction: {
             title: "Delete Task",
             style: Alert.ActionStyle.Destructive,

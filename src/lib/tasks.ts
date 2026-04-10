@@ -1,5 +1,6 @@
 import { differenceInCalendarDays } from "date-fns";
 import { compareCanonicalDateStrings, fromCanonicalDateString } from "./date";
+import type { TaskIndicatorKind, TaskVisualTone } from "./task-visuals";
 import type {
   TaskInput,
   TaskRecord,
@@ -9,11 +10,18 @@ import type {
 } from "./types";
 import { matchesTaskSearch } from "./task-presentation";
 
-export type TaskListIndicatorColor = "red" | "blue";
-
 export interface EnabledListMetadata {
   dueDate: boolean;
+  pastDue: boolean;
   startDate: boolean;
+}
+
+export interface TaskListIndicator {
+  kind: TaskIndicatorKind;
+  priority: number;
+  text: string;
+  tone: TaskVisualTone;
+  tooltip: string;
 }
 
 interface TaskSearchOptions {
@@ -179,42 +187,27 @@ export function getRelativeDueLabel(value?: string | null): string | null {
 export function getTaskListIndicators(
   task: TaskRecord,
   enabledMetadata: EnabledListMetadata,
-): Array<{
-  color: TaskListIndicatorColor;
-  text: string;
-  tooltip: string;
-}> {
-  const indicators: Array<{
-    color: TaskListIndicatorColor;
-    text: string;
-    tooltip: string;
-  }> = [];
+): TaskListIndicator[] {
+  const indicators: TaskListIndicator[] = [];
 
-  const startIndicator = enabledMetadata.startDate
-    ? getStartDateIndicator(task.startDate)
-    : null;
-
-  if (enabledMetadata.startDate && enabledMetadata.dueDate) {
-    if (startIndicator !== null) {
-      return [startIndicator];
-    }
-
+  if (enabledMetadata.dueDate) {
     const dueIndicator = getDueDateIndicator(task.dueDate);
-    return dueIndicator !== null ? [dueIndicator] : [];
+    if (
+      dueIndicator !== null &&
+      (enabledMetadata.pastDue || dueIndicator.tone !== "critical")
+    ) {
+      indicators.push(dueIndicator);
+    }
   }
 
-  if (startIndicator !== null) {
-    indicators.push(startIndicator);
+  if (enabledMetadata.startDate) {
+    const startIndicator = getStartDateIndicator(task.startDate);
+    if (startIndicator !== null) {
+      indicators.push(startIndicator);
+    }
   }
 
-  const dueIndicator = enabledMetadata.dueDate
-    ? getDueDateIndicator(task.dueDate)
-    : null;
-  if (dueIndicator !== null) {
-    indicators.push(dueIndicator);
-  }
-
-  return indicators;
+  return indicators.sort((left, right) => left.priority - right.priority);
 }
 
 export function getMenuBarTask(tasks: TaskRecord[]): TaskRecord | undefined {
@@ -327,11 +320,7 @@ function isDueSoon(task: TaskRecord, dueSoonDays: number): boolean {
   return differenceInCalendarDays(dueDate, startOfToday()) <= dueSoonDays;
 }
 
-function getDueDateIndicator(value?: string | null): {
-  color: TaskListIndicatorColor;
-  text: string;
-  tooltip: string;
-} | null {
+function getDueDateIndicator(value?: string | null): TaskListIndicator | null {
   const dueDate = parseTaskDate(value);
   if (!dueDate) {
     return null;
@@ -339,17 +328,17 @@ function getDueDateIndicator(value?: string | null): {
 
   const daysUntilDue = differenceInCalendarDays(dueDate, startOfToday());
   return {
-    color: "red",
-    text: formatCountdownDays(daysUntilDue),
+    kind: "due",
+    priority: getDueIndicatorPriority(daysUntilDue),
+    text: formatRelativeIndicator(daysUntilDue, dueDate, "due"),
+    tone: getDueIndicatorTone(daysUntilDue),
     tooltip: buildCountdownTooltip("Due", daysUntilDue, dueDate),
   };
 }
 
-function getStartDateIndicator(value?: string | null): {
-  color: TaskListIndicatorColor;
-  text: string;
-  tooltip: string;
-} | null {
+function getStartDateIndicator(
+  value?: string | null,
+): TaskListIndicator | null {
   const startDate = parseTaskDate(value);
   if (!startDate) {
     return null;
@@ -361,14 +350,70 @@ function getStartDateIndicator(value?: string | null): {
   }
 
   return {
-    color: "blue",
-    text: formatCountdownDays(daysUntilStart),
+    kind: "start",
+    priority: 2,
+    text: formatRelativeIndicator(daysUntilStart, startDate, "start"),
+    tone: "info",
     tooltip: buildCountdownTooltip("Start", daysUntilStart, startDate),
   };
 }
 
-function formatCountdownDays(days: number): string {
-  return `${days}d`;
+function formatRelativeIndicator(
+  days: number,
+  date: Date,
+  type: "due" | "start",
+): string {
+  if (days < 0) {
+    return `${Math.abs(days)}d late`;
+  }
+
+  if (days === 0) {
+    return "Today";
+  }
+
+  if (days === 1) {
+    return "Tomorrow";
+  }
+
+  if (days <= 7) {
+    return `${days}d`;
+  }
+
+  if (type === "start") {
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function getDueIndicatorTone(daysUntilDue: number): TaskVisualTone {
+  if (daysUntilDue < 0) {
+    return "critical";
+  }
+
+  if (daysUntilDue <= 7) {
+    return "warning";
+  }
+
+  return "scheduled";
+}
+
+function getDueIndicatorPriority(daysUntilDue: number): number {
+  if (daysUntilDue < 0) {
+    return 0;
+  }
+
+  if (daysUntilDue <= 7) {
+    return 1;
+  }
+
+  return 3;
 }
 
 function buildCountdownTooltip(

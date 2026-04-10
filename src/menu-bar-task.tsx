@@ -1,15 +1,17 @@
 import {
   Cache,
-  Icon,
   LaunchType,
   MenuBarExtra,
   Toast,
+  environment,
   launchCommand,
   openExtensionPreferences,
   showToast,
 } from "@raycast/api";
+import path from "path";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getRelativeDueLabel, isActiveTaskStatus } from "./lib/tasks";
+import { getTaskActionIcon, getTaskStatusIcon } from "./lib/task-visuals";
 import { readMenuBarCache } from "./lib/menu-bar-cache";
 import { refreshMenuBarState } from "./lib/menu-bar-state";
 import { createMenuBarRepository } from "./lib/menu-bar-state-runtime";
@@ -75,7 +77,12 @@ export default function Command() {
 
   return (
     <MenuBarExtra
-      icon={Icon.List}
+      icon={{
+        source: {
+          light: path.join(environment.assetsPath, "menu-bar-icon-light.svg"),
+          dark: path.join(environment.assetsPath, "menu-bar-icon-dark.svg"),
+        },
+      }}
       isLoading={isLoading}
       title={title}
       tooltip={tooltip}
@@ -84,6 +91,7 @@ export default function Command() {
         <MenuBarExtra.Item
           title={title}
           subtitle={currentTask ? buildTaskSubtitle(currentTask) : undefined}
+          icon={currentTask ? getTaskStatusIcon(currentTask.status) : undefined}
           onAction={
             currentTask
               ? () =>
@@ -98,7 +106,7 @@ export default function Command() {
         {currentTask && isActiveTaskStatus(currentTask.status) && (
           <MenuBarExtra.Item
             title="Complete Current Task"
-            icon={Icon.CheckCircle}
+            icon={getTaskActionIcon("Complete Task")}
             onAction={handleCompleteCurrentTask}
           />
         )}
@@ -112,6 +120,7 @@ export default function Command() {
                 key={task.id}
                 title={task.header}
                 subtitle={buildTaskSubtitle(task)}
+                icon={getTaskStatusIcon(task.status)}
                 onAction={() =>
                   launchCommand({
                     name: "list-tasks",
@@ -126,7 +135,7 @@ export default function Command() {
       <MenuBarExtra.Section title="Actions">
         <MenuBarExtra.Item
           title="Open Task List"
-          icon={Icon.Eye}
+          icon={getTaskActionIcon("Open Task")}
           onAction={() =>
             launchCommand({
               name: "list-tasks",
@@ -136,7 +145,7 @@ export default function Command() {
         />
         <MenuBarExtra.Item
           title="Open Extension Preferences"
-          icon={Icon.Gear}
+          icon={getTaskActionIcon("Open Extension Preferences")}
           onAction={openExtensionPreferences}
         />
       </MenuBarExtra.Section>

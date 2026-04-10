@@ -207,12 +207,16 @@ test("shows only the future start indicator when both dates are enabled", () => 
       dueDate: due.toISOString(),
       startDate: start.toISOString(),
     }),
-    { dueDate: true, startDate: true },
+    { dueDate: true, pastDue: true, startDate: true },
   );
 
-  assert.equal(indicators.length, 1);
-  assert.equal(indicators[0]?.color, "blue");
-  assert.equal(indicators[0]?.text, "1d");
+  assert.equal(indicators.length, 2);
+  assert.equal(indicators[0]?.kind, "due");
+  assert.equal(indicators[0]?.tone, "warning");
+  assert.equal(indicators[0]?.text, "3d");
+  assert.equal(indicators[1]?.kind, "start");
+  assert.equal(indicators[1]?.tone, "info");
+  assert.equal(indicators[1]?.text, "Tomorrow");
 });
 
 test("shows only the due indicator when the start date is in the past", () => {
@@ -226,12 +230,16 @@ test("shows only the due indicator when the start date is in the past", () => {
       dueDate: due.toISOString(),
       startDate: pastStart.toISOString(),
     }),
-    { dueDate: true, startDate: true },
+    { dueDate: true, pastDue: true, startDate: true },
   );
 
   assert.deepEqual(
-    indicators.map((indicator) => indicator.text),
-    ["5d"],
+    indicators.map((indicator) => ({
+      kind: indicator.kind,
+      text: indicator.text,
+      tone: indicator.tone,
+    })),
+    [{ kind: "due", text: "5d", tone: "warning" }],
   );
 });
 
@@ -246,13 +254,81 @@ test("omits disabled metadata types", () => {
       dueDate: due.toISOString(),
       startDate: start.toISOString(),
     }),
-    { dueDate: false, startDate: true },
+    { dueDate: false, pastDue: true, startDate: true },
   );
 
   assert.deepEqual(
-    indicators.map((indicator) => indicator.text),
-    ["1d"],
+    indicators.map((indicator) => ({
+      kind: indicator.kind,
+      text: indicator.text,
+      tone: indicator.tone,
+    })),
+    [{ kind: "start", text: "Tomorrow", tone: "info" }],
   );
+});
+
+test("uses critical due visuals for overdue tasks", () => {
+  const overdue = new Date();
+  overdue.setDate(overdue.getDate() - 2);
+
+  const indicators = getTaskListIndicators(
+    createTask({
+      dueDate: overdue.toISOString(),
+    }),
+    { dueDate: true, pastDue: true, startDate: false },
+  );
+
+  assert.deepEqual(indicators[0], {
+    kind: "due",
+    priority: 0,
+    text: "2d late",
+    tone: "critical",
+    tooltip: `Due 2d ago (${new Date(overdue).toLocaleDateString()})`,
+  });
+});
+
+test("uses warning due visuals for tasks due today", () => {
+  const today = new Date();
+
+  const indicators = getTaskListIndicators(
+    createTask({
+      dueDate: today.toISOString(),
+    }),
+    { dueDate: true, pastDue: true, startDate: false },
+  );
+
+  assert.equal(indicators[0]?.text, "Today");
+  assert.equal(indicators[0]?.tone, "warning");
+});
+
+test("uses scheduled due visuals for tasks beyond the due-soon window", () => {
+  const later = new Date();
+  later.setDate(later.getDate() + 14);
+
+  const indicators = getTaskListIndicators(
+    createTask({
+      dueDate: later.toISOString(),
+    }),
+    { dueDate: true, pastDue: true, startDate: false },
+  );
+
+  assert.equal(indicators[0]?.kind, "due");
+  assert.equal(indicators[0]?.tone, "scheduled");
+  assert.match(indicators[0]?.text ?? "", /^[A-Z][a-z]{2} \d{1,2}$/);
+});
+
+test("can hide overdue indicators independently from due date indicators", () => {
+  const overdue = new Date();
+  overdue.setDate(overdue.getDate() - 2);
+
+  const indicators = getTaskListIndicators(
+    createTask({
+      dueDate: overdue.toISOString(),
+    }),
+    { dueDate: true, pastDue: false, startDate: false },
+  );
+
+  assert.deepEqual(indicators, []);
 });
 
 test("menu bar task uses the earliest due date among active tasks", () => {

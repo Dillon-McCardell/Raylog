@@ -52,6 +52,15 @@
           "label": "Show Due Countdown"
         },
         {
+          "name": "showPastDueIndicator",
+          "type": "checkbox",
+          "required": false,
+          "default": true,
+          "title": "Show Past Due",
+          "description": "Show overdue tasks with a past due indicator in the task list.",
+          "label": "Show Past Due"
+        },
+        {
           "name": "showStartDateIndicator",
           "type": "checkbox",
           "required": false,

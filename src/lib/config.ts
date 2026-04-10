@@ -8,6 +8,7 @@ interface SharedPreferences {
 interface ListTasksPreferences extends SharedPreferences {
   dueSoonDays?: string;
   showDueDateIndicator?: boolean;
+  showPastDueIndicator?: boolean;
   showStartDateIndicator?: boolean;
   logStatusBehavior?: string;
 }
@@ -20,11 +21,13 @@ export function getConfiguredStorageNotePath(): string | undefined {
 
 export function getEnabledListMetadata(): {
   dueDate: boolean;
+  pastDue: boolean;
   startDate: boolean;
 } {
   const preferences = getPreferenceValues<ListTasksPreferences>();
   return {
     dueDate: preferences.showDueDateIndicator ?? true,
+    pastDue: preferences.showPastDueIndicator ?? true,
     startDate: preferences.showStartDateIndicator ?? true,
   };
 }

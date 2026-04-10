@@ -1,8 +1,6 @@
 import {
   Action,
   ActionPanel,
-  Color,
-  Icon,
   List,
   Toast,
   openExtensionPreferences,
@@ -14,7 +12,7 @@ import {
   buildTaskListActionSpecs,
   type TaskActionSpec,
 } from "./task-action-specs";
-import { getDueSoonDays, getEnabledListMetadata } from "../lib/config";
+import { getDueSoonDays } from "../lib/config";
 import {
   getRaylogErrorMessage,
   isRaylogCorruptionError,
@@ -24,9 +22,13 @@ import {
   filterTasks,
   getTaskFilterDescription,
   getTaskFilterLabel,
-  getTaskListIndicators,
   sortTasks,
 } from "../lib/tasks";
+import {
+  getTaskActionIcon,
+  getTaskFilterIcon,
+  getTaskStatusIcon,
+} from "../lib/task-visuals";
 import {
   buildTaskDetailMarkdown,
   matchesTaskSearch,
@@ -34,7 +36,6 @@ import {
 import type {
   TaskLogStatusBehavior,
   TaskRecord,
-  TaskStatus,
   TaskViewFilter,
 } from "../lib/types";
 import TaskForm from "./TaskForm";
@@ -63,7 +64,6 @@ export default function TaskListScreen({
   const pageSize = 200;
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const dueSoonDays = getDueSoonDays();
-  const enabledListMetadata = getEnabledListMetadata();
   const [isLoading, setIsLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [searchText, setSearchText] = useState("");
@@ -232,7 +232,7 @@ export default function TaskListScreen({
               <ActionPanel.Section>
                 <Action.Push
                   title="Add Task"
-                  icon={Icon.Plus}
+                  icon={getTaskActionIcon("Add Task")}
                   target={
                     <TaskForm
                       notePath={notePath}
@@ -244,14 +244,14 @@ export default function TaskListScreen({
                 />
                 <Action
                   title="Reload Tasks"
-                  icon={Icon.ArrowClockwise}
+                  icon={getTaskActionIcon("Reload Tasks")}
                   onAction={loadTasks}
                 />
               </ActionPanel.Section>
               <ActionPanel.Section>
                 <Action
                   title="Open Extension Preferences"
-                  icon={Icon.Gear}
+                  icon={getTaskActionIcon("Open Extension Preferences")}
                   onAction={openExtensionPreferences}
                 />
               </ActionPanel.Section>
@@ -262,7 +262,6 @@ export default function TaskListScreen({
         visibleTasks.map((task) => (
           <TaskItem
             key={task.id}
-            enabledListMetadata={enabledListMetadata}
             notePath={notePath}
             task={task}
             onReload={loadTasks}
@@ -278,10 +277,6 @@ export default function TaskListScreen({
 }
 
 interface TaskItemProps {
-  enabledListMetadata: {
-    dueDate: boolean;
-    startDate: boolean;
-  };
   notePath: string;
   onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void;
   task: TaskRecord;
@@ -304,20 +299,35 @@ function TaskFilterDropdown({
       value={selectedFilter}
       onChange={(value) => void onSelectFilter(value as TaskViewFilter)}
     >
-      <List.Dropdown.Item value="all" title={getTaskFilterLabel("all")} />
-      <List.Dropdown.Item value="open" title={getTaskFilterLabel("open")} />
+      <List.Dropdown.Item
+        value="all"
+        title={getTaskFilterLabel("all")}
+        icon={getTaskFilterIcon("all")}
+      />
+      <List.Dropdown.Item
+        value="open"
+        title={getTaskFilterLabel("open")}
+        icon={getTaskFilterIcon("open")}
+      />
       <List.Dropdown.Item
         value="in_progress"
         title={getTaskFilterLabel("in_progress")}
+        icon={getTaskFilterIcon("in_progress")}
       />
       <List.Dropdown.Item
         value="due_soon"
         title={getTaskFilterLabel("due_soon")}
+        icon={getTaskFilterIcon("due_soon")}
       />
-      <List.Dropdown.Item value="done" title={getTaskFilterLabel("done")} />
+      <List.Dropdown.Item
+        value="done"
+        title={getTaskFilterLabel("done")}
+        icon={getTaskFilterIcon("done")}
+      />
       <List.Dropdown.Item
         value="archived"
         title={getTaskFilterLabel("archived")}
+        icon={getTaskFilterIcon("archived")}
       />
     </List.Dropdown>
   );
@@ -338,7 +348,6 @@ function TaskFilterActions({
 }
 
 function TaskItem({
-  enabledListMetadata,
   notePath,
   onSelectFilter,
   task,
@@ -348,7 +357,6 @@ function TaskItem({
   isSelected,
 }: TaskItemProps) {
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
-  const indicators = getTaskListIndicators(task, enabledListMetadata);
   const actionSpecs = buildTaskListActionSpecs({
     notePath,
     repository,
@@ -360,19 +368,8 @@ function TaskItem({
   return (
     <List.Item
       id={task.id}
-      icon={getTaskIcon(task.status)}
-      title={buildTaskTitle(task.header, indicators)}
-      accessories={
-        indicators.length > 0
-          ? indicators.map((indicator) => ({
-              tag: {
-                value: indicator.text,
-                color: getIndicatorColor(indicator.color),
-              },
-              tooltip: indicator.tooltip,
-            }))
-          : undefined
-      }
+      icon={getTaskStatusIcon(task.status)}
+      title={task.header}
       detail={
         isSelected ? (
           <List.Item.Detail
@@ -393,7 +390,7 @@ function TaskItem({
           <ActionPanel.Section>
             <Action
               title="Open Extension Preferences"
-              icon={Icon.Gear}
+              icon={getTaskActionIcon("Open Extension Preferences")}
               onAction={openExtensionPreferences}
             />
           </ActionPanel.Section>
@@ -403,67 +400,12 @@ function TaskItem({
   );
 }
 
-function getTaskIcon(status: TaskStatus): Icon {
-  switch (status) {
-    case "open":
-      return Icon.Circle;
-    case "in_progress":
-      return Icon.Play;
-    case "done":
-      return Icon.CheckCircle;
-    case "archived":
-      return Icon.Box;
-  }
-}
-
-function getIndicatorColor(color: "red" | "blue"): Color.ColorLike {
-  return color === "red" ? Color.Red : Color.Blue;
-}
-
-function buildTaskTitle(
-  header: string,
-  indicators: ReturnType<typeof getTaskListIndicators>,
-): { value: string; tooltip: string } {
-  const maxTitleLength = getMaxTaskTitleLength(indicators);
-
-  if (header.length <= maxTitleLength) {
-    return {
-      value: header,
-      tooltip: header,
-    };
-  }
-
-  return {
-    value: `${header.slice(0, maxTitleLength - 3)}...`,
-    tooltip: header,
-  };
-}
-
-function getMaxTaskTitleLength(
-  indicators: ReturnType<typeof getTaskListIndicators>,
-): number {
-  if (indicators.length === 0) {
-    return 72;
-  }
-
-  const indicatorTextWidth = indicators.reduce(
-    (width, indicator) => width + indicator.text.length,
-    0,
-  );
-
-  if (indicators.length >= 2) {
-    return Math.max(11, 22 - indicatorTextWidth);
-  }
-
-  return Math.max(17, 32 - indicatorTextWidth);
-}
-
 function RenderedAction({ spec }: { spec: TaskActionSpec }) {
   if (spec.target) {
     return (
       <Action.Push
         title={spec.title}
-        icon={spec.icon}
+        icon={spec.icon ?? undefined}
         shortcut={spec.shortcut}
         target={spec.target}
       />

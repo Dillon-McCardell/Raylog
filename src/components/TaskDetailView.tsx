@@ -6,6 +6,11 @@ import {
 } from "./task-action-specs";
 import { formatTaskDate } from "../lib/date";
 import { getTaskStatusLabel } from "../lib/tasks";
+import {
+  getTaskActionIcon,
+  getTaskIndicatorIcon,
+  getTaskStatusIcon,
+} from "../lib/task-visuals";
 import { buildTaskDetailMarkdown } from "../lib/task-presentation";
 import { getRaylogErrorMessage, RaylogRepository } from "../lib/storage";
 import type { TaskLogStatusBehavior, TaskRecord } from "../lib/types";
@@ -57,7 +62,7 @@ export default function TaskDetailView({
           <ActionPanel>
             <Action
               title="Reload Task"
-              icon={Icon.ArrowClockwise}
+              icon={getTaskActionIcon("Reload Task")}
               onAction={loadTask}
             />
           </ActionPanel>
@@ -98,31 +103,38 @@ export default function TaskDetailView({
           <Detail.Metadata.Label
             title="Status"
             text={getTaskStatusLabel(task.status)}
+            icon={getTaskStatusIcon(task.status)}
           />
           <Detail.Metadata.Label
             title="Due Date"
             text={formatTaskDate(task.dueDate)}
+            icon={getTaskIndicatorIcon("due", "scheduled")}
           />
           <Detail.Metadata.Label
             title="Start Date"
             text={formatTaskDate(task.startDate)}
+            icon={getTaskIndicatorIcon("start", "info")}
           />
           <Detail.Metadata.Label
             title="Completed"
             text={formatTaskDate(task.completedAt)}
+            icon={getTaskStatusIcon("done")}
           />
           <Detail.Metadata.Label
             title="Work Logs"
             text={String(task.workLogs.length)}
+            icon={Icon.BulletPoints}
           />
           <Detail.Metadata.Separator />
           <Detail.Metadata.Label
             title="Created"
             text={new Date(task.createdAt).toLocaleString()}
+            icon={Icon.Clock}
           />
           <Detail.Metadata.Label
             title="Updated"
             text={new Date(task.updatedAt).toLocaleString()}
+            icon={Icon.ArrowClockwise}
           />
         </Detail.Metadata>
       }
@@ -136,7 +148,7 @@ export default function TaskDetailView({
           <ActionPanel.Section>
             <Action
               title="Reload Task"
-              icon={Icon.ArrowClockwise}
+              icon={getTaskActionIcon("Reload Task")}
               onAction={loadTask}
             />
           </ActionPanel.Section>
@@ -151,7 +163,7 @@ function RenderedAction({ spec }: { spec: TaskActionSpec }) {
     return (
       <Action.Push
         title={spec.title}
-        icon={spec.icon}
+        icon={spec.icon ?? undefined}
         shortcut={spec.shortcut}
         target={spec.target}
       />

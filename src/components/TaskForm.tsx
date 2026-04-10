@@ -1,10 +1,11 @@
-import { Action, ActionPanel, Form, Icon, useNavigation } from "@raycast/api";
+import { Action, ActionPanel, Form, useNavigation } from "@raycast/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fromCanonicalDateString } from "../lib/date";
 import { type TaskFormController } from "../lib/task-form-controller";
 import { createDefaultTaskFormController } from "../lib/task-form-controller-runtime";
 import type { TaskFormValues } from "../lib/task-form-submit";
 import { getTaskStatusLabel } from "../lib/tasks";
+import { getTaskActionIcon, getTaskStatusIcon } from "../lib/task-visuals";
 import type {
   TaskLogStatusBehavior,
   TaskRecord,
@@ -142,13 +143,17 @@ export default function TaskForm({
           <ActionPanel.Section>
             <Action.SubmitForm
               title={isEditing ? "Save Task" : "Create Task"}
-              icon={isEditing ? Icon.SaveDocument : Icon.Plus}
+              icon={
+                isEditing
+                  ? getTaskActionIcon("Save Task")
+                  : getTaskActionIcon("Create Task")
+              }
               onSubmit={handleSubmit}
             />
             {isEditing && focusedWorkLogId && (
               <Action
                 title="Delete Work Log"
-                icon={Icon.Trash}
+                icon={getTaskActionIcon("Delete Task")}
                 style={Action.Style.Destructive}
                 onAction={handleDeleteFocusedWorkLog}
                 shortcut={{ modifiers: ["cmd"], key: "d" }}
@@ -161,8 +166,8 @@ export default function TaskForm({
       <Form.TextField
         ref={headerRef}
         id="header"
-        title="✦ Header"
-        placeholder="Task header"
+        title="Title"
+        placeholder="Task title"
         value={values.header}
         error={headerError}
         onChange={(newValue) => {
@@ -177,8 +182,8 @@ export default function TaskForm({
       />
       <Form.TextArea
         id="body"
-        title="📝 Body"
-        placeholder="Optional markdown body"
+        title="Description"
+        placeholder="Optional markdown details"
         enableMarkdown
         value={values.body}
         onChange={(newValue) =>
@@ -188,9 +193,10 @@ export default function TaskForm({
           }))
         }
       />
+      <Form.Separator />
       <Form.Dropdown
         id="status"
-        title="◉ Status"
+        title="Status"
         value={values.status}
         onChange={(value) =>
           setValues((currentValues) => ({
@@ -199,20 +205,30 @@ export default function TaskForm({
           }))
         }
       >
-        <Form.Dropdown.Item value="open" title={getTaskStatusLabel("open")} />
+        <Form.Dropdown.Item
+          value="open"
+          title={getTaskStatusLabel("open")}
+          icon={getTaskStatusIcon("open")}
+        />
         <Form.Dropdown.Item
           value="in_progress"
           title={getTaskStatusLabel("in_progress")}
+          icon={getTaskStatusIcon("in_progress")}
         />
-        <Form.Dropdown.Item value="done" title={getTaskStatusLabel("done")} />
+        <Form.Dropdown.Item
+          value="done"
+          title={getTaskStatusLabel("done")}
+          icon={getTaskStatusIcon("done")}
+        />
         <Form.Dropdown.Item
           value="archived"
           title={getTaskStatusLabel("archived")}
+          icon={getTaskStatusIcon("archived")}
         />
       </Form.Dropdown>
       <Form.DatePicker
         id="dueDate"
-        title="⏰ Due Date"
+        title="Due Date"
         value={values.dueDate}
         onChange={(newValue) =>
           setValues((currentValues) => ({
@@ -223,7 +239,7 @@ export default function TaskForm({
       />
       <Form.DatePicker
         id="startDate"
-        title="▶ Start Date"
+        title="Start Date"
         value={values.startDate}
         onChange={(newValue) =>
           setValues((currentValues) => ({
@@ -232,10 +248,11 @@ export default function TaskForm({
           }))
         }
       />
+      <Form.Separator />
       {isEditing && (
         <>
           <Form.Description
-            title="🗂 Work Logs"
+            title="Work Logs"
             text={
               values.workLogs.length > 0
                 ? "Edit existing work logs below. Focus a work log field to enable ⌘D deletion."
@@ -249,7 +266,7 @@ export default function TaskForm({
                 workLogRefs.current[workLog.id] = ref;
               }}
               id={`workLog-${workLog.id}`}
-              title={`🕒 Log ${index + 1}`}
+              title={`Log ${index + 1}`}
               info={buildWorkLogInfo(workLog)}
               enableMarkdown
               value={workLog.body}
@@ -276,7 +293,7 @@ export default function TaskForm({
       <Form.TextArea
         ref={newWorkLogRef}
         id="newWorkLogEntry"
-        title="➕ New Log Entry"
+        title="New Log Entry"
         placeholder="Log the work you completed for this task"
         enableMarkdown
         value={newWorkLogEntry}

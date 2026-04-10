@@ -15,6 +15,7 @@ import path from "path";
 import { ReactNode, useEffect, useState } from "react";
 import { getConfiguredStorageNotePath } from "../lib/config";
 import { RAYLOG_SCHEMA_VERSION } from "../lib/constants";
+import { getTaskActionIcon } from "../lib/task-visuals";
 import {
   ensureStorageNote,
   getRaylogErrorMessage,
@@ -191,17 +192,20 @@ export default function ConfiguredCommand({
               {canGenerateDatabase && (
                 <Action
                   title="Generate New Task Database"
+                  icon={getTaskActionIcon("Add Task")}
                   onAction={handleGenerateStorage}
                 />
               )}
               {canReset && (
                 <Action
                   title="Reset Storage Note"
+                  icon={Icon.ArrowCounterClockwise}
                   onAction={handleResetStorage}
                 />
               )}
               <Action
                 title="Open Extension Preferences"
+                icon={getTaskActionIcon("Open Extension Preferences")}
                 onAction={openExtensionPreferences}
               />
             </ActionPanel>
