@@ -60,6 +60,7 @@ export default function TaskListScreen({
   hideFilters = false,
   taskLogStatusBehavior = "auto_start",
 }: TaskListScreenProps) {
+  const pageSize = 200;
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const dueSoonDays = getDueSoonDays();
   const enabledListMetadata = getEnabledListMetadata();
@@ -67,6 +68,8 @@ export default function TaskListScreen({
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [searchText, setSearchText] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<TaskViewFilter>("all");
+  const [selectedListItemId, setSelectedListItemId] = useState<string>();
+  const [visibleItemCount, setVisibleItemCount] = useState(pageSize);
   const [loadError, setLoadError] = useState<string>();
   const effectiveSelectedFilter = selectedTaskId ? "all" : selectedFilter;
 
@@ -98,6 +101,28 @@ export default function TaskListScreen({
   useEffect(() => {
     void loadInitialState();
   }, [loadInitialState]);
+
+  useEffect(() => {
+    if (selectedTaskId) {
+      setSelectedListItemId(selectedTaskId);
+      return;
+    }
+
+    setSelectedListItemId((currentSelection) => {
+      if (
+        currentSelection &&
+        tasks.some((task) => task.id === currentSelection)
+      ) {
+        return currentSelection;
+      }
+
+      return tasks[0]?.id;
+    });
+  }, [selectedTaskId, tasks]);
+
+  useEffect(() => {
+    setVisibleItemCount(pageSize);
+  }, [pageSize, searchText, effectiveSelectedFilter, taskIds, tasks]);
 
   const handleSelectFilter = useCallback(
     async (filter: TaskViewFilter) => {
@@ -155,16 +180,25 @@ export default function TaskListScreen({
   const currentFilterDescription = getTaskFilterDescription(
     effectiveSelectedFilter,
   );
+  const visibleTasks = filteredTasks.slice(0, visibleItemCount);
+  const hasMoreVisibleTasks = visibleTasks.length < filteredTasks.length;
 
   return (
     <List
       isLoading={isLoading}
       isShowingDetail={filteredTasks.length > 0}
-      selectedItemId={selectedTaskId}
+      selectedItemId={selectedTaskId ?? selectedListItemId}
       navigationTitle={navigationTitle}
       searchBarPlaceholder="Search tasks by header or body"
       onSearchTextChange={setSearchText}
+      onSelectionChange={(id) => setSelectedListItemId(id ?? undefined)}
       filtering={false}
+      pagination={{
+        pageSize,
+        hasMore: hasMoreVisibleTasks,
+        onLoadMore: () =>
+          setVisibleItemCount((currentCount) => currentCount + pageSize),
+      }}
       searchBarAccessory={
         hideFilters ? undefined : (
           <TaskFilterDropdown
@@ -225,7 +259,7 @@ export default function TaskListScreen({
           }
         />
       ) : (
-        filteredTasks.map((task) => (
+        visibleTasks.map((task) => (
           <TaskItem
             key={task.id}
             enabledListMetadata={enabledListMetadata}
@@ -235,6 +269,7 @@ export default function TaskListScreen({
             hideFilters={hideFilters}
             taskLogStatusBehavior={taskLogStatusBehavior}
             onSelectFilter={handleSelectFilter}
+            isSelected={task.id === (selectedTaskId ?? selectedListItemId)}
           />
         ))
       )}
@@ -253,6 +288,7 @@ interface TaskItemProps {
   onReload: () => Promise<void>;
   hideFilters: boolean;
   taskLogStatusBehavior: TaskLogStatusBehavior;
+  isSelected: boolean;
 }
 
 function TaskFilterDropdown({
@@ -309,6 +345,7 @@ function TaskItem({
   onReload,
   hideFilters,
   taskLogStatusBehavior,
+  isSelected,
 }: TaskItemProps) {
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const indicators = getTaskListIndicators(task, enabledListMetadata);
@@ -337,9 +374,11 @@ function TaskItem({
           : undefined
       }
       detail={
-        <List.Item.Detail
-          markdown={buildTaskDetailMarkdown(task, { includeTopSpacer: true })}
-        />
+        isSelected ? (
+          <List.Item.Detail
+            markdown={buildTaskDetailMarkdown(task, { includeTopSpacer: true })}
+          />
+        ) : undefined
       }
       actions={
         <ActionPanel>

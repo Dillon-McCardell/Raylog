@@ -135,6 +135,10 @@ the Raylog block.
 - showing the start countdown indicator
 - choosing how many days count as `Due Soon`
 
+Large task sets are searched across the full datastore, while list rows are
+loaded incrementally as you scroll so very large notes do not have to mount all
+visible items at once.
+
 ## Troubleshooting
 
 - If tasks do not load, verify that **Storage Note** points at the expected
@@ -158,3 +162,13 @@ npm test
 npm run lint
 npm run build
 ```
+
+To generate a large sibling datastore for stress testing without touching your
+normal note:
+
+```bash
+npm run generate:stress-note -- /path/to/current-raylog.md --count 5000
+```
+
+This creates a new file next to the source note named like
+`current-raylog.stress-5000.md` unless you pass `--output`.
