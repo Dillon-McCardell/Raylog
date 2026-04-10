@@ -26,7 +26,10 @@ Use **List Tasks** to manage work from one command.
 - `All Tasks` includes `Open`, `In Progress`, and `Done`; `Archived` remains a separate view
 - Search task headers and bodies within the active view
 - Jump between task views with `Cmd-1` through `Cmd-6`
-- Preview the task body and work logs in the detail pane
+- Use `Cmd+F` to switch between `Task Summary` and the full-width `Task List`
+- The command reopens in the last list layout you used
+- `Task Summary` shows the task body and work logs in the detail pane
+- `Task List` shows each row as status, header, body preview, start date, and due date
 - Use `Cmd+L` to jump straight into logging from the selected task
 - Trigger lifecycle actions without leaving the list
 - Open the form to edit or create tasks
@@ -76,11 +79,22 @@ flowchart TD
     Z -->|"No"| X["Setup or reset state"]
     Z -->|"Yes"| B
 
-    B -->|"Enter"| E["View Task"]
-    B -->|"Cmd+L"| I["Edit Task Form (new log focused)"]
-    B -->|"Cmd+N"| F["Add Task Form"]
-    B -->|"Cmd+E"| G["Edit Task Form"]
-    B -->|"Cmd+Shift+C"| H["Complete Task"]
+    B -->|"Open last used view"| B1["Task Summary"]
+    B -->|"Open last used view"| B2["Task List"]
+
+    B1 -->|"Enter"| E["View Task"]
+    B1 -->|"Cmd+F"| B2
+    B1 -->|"Cmd+L"| I["Edit Task Form (new log focused)"]
+    B1 -->|"Cmd+N"| F["Add Task Form"]
+    B1 -->|"Cmd+E"| G["Edit Task Form"]
+    B1 -->|"Cmd+Shift+C"| H["Complete Task"]
+
+    B2 -->|"Enter"| E
+    B2 -->|"Cmd+F"| B1
+    B2 -->|"Cmd+L"| I
+    B2 -->|"Cmd+N"| F
+    B2 -->|"Cmd+E"| G
+    B2 -->|"Cmd+Shift+C"| H
 
     E -->|"Default action: Log Work"| I
     E -->|"Cmd+E"| G
@@ -90,7 +104,7 @@ flowchart TD
     I -->|"Save"| E
     G -->|"Save"| E
     F -->|"Save"| B
-    H --> B
+    H --> B1
     J --> E
     K --> E
 

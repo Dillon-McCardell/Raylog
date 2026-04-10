@@ -6,12 +6,15 @@ export type TaskViewFilter =
   | "due_soon"
   | "done"
   | "archived";
+export type TaskListViewMode = "summary" | "list";
 
 export type TaskLogStatusBehavior = "auto_start" | "keep_status" | "prompt";
 
 export interface RaylogViewState {
   hasSelectedListTasksFilter: boolean;
   listTasksFilter: TaskViewFilter;
+  hasSelectedListViewMode: boolean;
+  listViewMode: TaskListViewMode;
 }
 
 export interface TaskRecord {

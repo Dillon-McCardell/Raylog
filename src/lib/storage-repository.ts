@@ -12,6 +12,7 @@ import { isRaylogDocument, parseRaylogMarkdown } from "./storage-schema";
 import type {
   RaylogDocument,
   TaskInput,
+  TaskListViewMode,
   TaskRecord,
   TaskStatus,
   TaskViewFilter,
@@ -42,6 +43,24 @@ export class RaylogRepository {
         ...document.viewState,
         hasSelectedListTasksFilter: true,
         listTasksFilter: filter,
+      },
+    }));
+  }
+
+  async getListViewMode(): Promise<TaskListViewMode> {
+    const { viewState } = await this.readDocument();
+    return viewState.hasSelectedListViewMode
+      ? viewState.listViewMode
+      : "summary";
+  }
+
+  async setListViewMode(viewMode: TaskListViewMode): Promise<void> {
+    await this.mutateDocument((document) => ({
+      ...document,
+      viewState: {
+        ...document.viewState,
+        hasSelectedListViewMode: true,
+        listViewMode: viewMode,
       },
     }));
   }

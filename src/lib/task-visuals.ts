@@ -9,7 +9,7 @@ export type TaskVisualTone =
   | "success"
   | "info";
 
-export type TaskIndicatorKind = "due" | "start";
+export type TaskIndicatorKind = "due" | "start" | "completed";
 
 export interface TaskIconVisual {
   source: Icon | string;
@@ -65,6 +65,10 @@ export function getTaskIndicatorIcon(
 ): Image.ImageLike {
   if (kind === "start") {
     return withTint(Icon.Play, getTaskToneColor(tone));
+  }
+
+  if (kind === "completed") {
+    return withTint(Icon.CheckCircle, getTaskToneColor(tone));
   }
 
   if (tone === "critical") {

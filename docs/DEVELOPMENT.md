@@ -20,8 +20,10 @@ flowchart TD
     Z1 -->|"Reset Storage Note"| Z
 
     subgraph LIST["List Tasks"]
-        Z -->|"Yes, launch List Tasks"| B1["Task list with detail pane"]
+        Z -->|"Yes, launch last used list layout"| B1["Task summary with detail pane"]
+        Z -->|"Yes, launch last used list layout"| B2["Task list without detail pane"]
         B1 -->|"Enter"| E["View Task window"]
+        B1 -->|"Cmd+F"| B2
         B1 -->|"Cmd+L"| N["Edit Task form (new log focused)"]
         B1 -->|"Cmd+N"| F["Add Task form"]
         B1 -->|"Cmd+E"| G["Edit Task form"]
@@ -35,6 +37,17 @@ flowchart TD
         J --> B1
         K --> B1
         L --> B1
+
+        B2 -->|"Enter"| E
+        B2 -->|"Cmd+F"| B1
+        B2 -->|"Cmd+L"| N
+        B2 -->|"Cmd+N"| F
+        B2 -->|"Cmd+E"| G
+        B2 -->|"Cmd+Shift+C"| I
+        B2 -->|"Cmd+S"| J
+        B2 -->|"Cmd+R"| K
+        B2 -->|"Cmd+Shift+A"| L
+        B2 -->|"Search or Filter"| B2
 
         F -->|"Save"| B1
         G -->|"Save"| B1
@@ -78,6 +91,7 @@ flowchart TD
         M1 -->|"Complete Current Task"| M2["Complete current task"]
         M1 -->|"Click task in Next 5 Tasks"| E1
         M1 -->|"Open Task List"| B1
+        M1 -->|"Open Task List"| B2
 
         M2 --> M1
         M3 -->|"Open Extension Preferences"| Z

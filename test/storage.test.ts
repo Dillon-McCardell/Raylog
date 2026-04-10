@@ -44,6 +44,8 @@ test("parses a valid v1 markdown note with a Raylog block", () => {
     viewState: {
       hasSelectedListTasksFilter: true,
       listTasksFilter: "done",
+      hasSelectedListViewMode: true,
+      listViewMode: "list",
     },
   });
 
@@ -102,6 +104,8 @@ test("describes malformed task data inside the Raylog block", () => {
           viewState: {
             hasSelectedListTasksFilter: false,
             listTasksFilter: "all",
+            hasSelectedListViewMode: false,
+            listViewMode: "summary",
           },
         }),
       );
@@ -125,6 +129,8 @@ test("describes unsupported schema versions clearly", () => {
     viewState: {
       hasSelectedListTasksFilter: false,
       listTasksFilter: "all",
+      hasSelectedListViewMode: false,
+      listViewMode: "summary",
     },
   });
 
@@ -146,6 +152,8 @@ test("throws on an outdated schema", () => {
     viewState: {
       hasSelectedListTasksFilter: false,
       listTasksFilter: "all",
+      hasSelectedListViewMode: false,
+      listViewMode: "summary",
     },
   });
 
@@ -296,6 +304,19 @@ test("persists the selected list filter in the storage document", async () => {
   assert.match(markdown, /"listTasksFilter": "archived"/);
 });
 
+test("persists the selected list view mode in the storage document", async () => {
+  const notePath = await createTempMarkdownFile("");
+  await resetStorageNote(notePath);
+  const repository = new RaylogRepository(notePath);
+
+  await repository.setListViewMode("list");
+
+  assert.equal(await repository.getListViewMode(), "list");
+  const markdown = await fs.promises.readFile(notePath, "utf8");
+  assert.match(markdown, /"hasSelectedListViewMode": true/);
+  assert.match(markdown, /"listViewMode": "list"/);
+});
+
 test("serializes concurrent creates so both tasks persist", async () => {
   const notePath = await createTempMarkdownFile("");
   await resetStorageNote(notePath);
@@ -370,6 +391,26 @@ test("defaults to all for current view state until a filter is explicitly select
   assert.equal(await repository.getListTasksFilter(), "all");
 });
 
+test("defaults to summary for current view mode until a layout is explicitly selected", async () => {
+  const notePath = await createTempMarkdownFile(
+    `<!-- raylog:start -->
+\`\`\`json
+{
+  "schemaVersion": 1,
+  "tasks": [],
+  "viewState": {
+    "listViewMode": "list"
+  }
+}
+\`\`\`
+<!-- raylog:end -->
+`,
+  );
+  const repository = new RaylogRepository(notePath);
+
+  assert.equal(await repository.getListViewMode(), "summary");
+});
+
 test("rejects v1 documents with blocked tasks", () => {
   const markdown = mergeRaylogMarkdown("", {
     schemaVersion: 1,
@@ -390,6 +431,8 @@ test("rejects v1 documents with blocked tasks", () => {
     viewState: {
       hasSelectedListTasksFilter: false,
       listTasksFilter: "all",
+      hasSelectedListViewMode: false,
+      listViewMode: "summary",
     },
   });
 
@@ -417,6 +460,8 @@ test("rejects v1 documents with dependency fields", () => {
     viewState: {
       hasSelectedListTasksFilter: false,
       listTasksFilter: "all",
+      hasSelectedListViewMode: false,
+      listViewMode: "summary",
     },
   });
 
@@ -445,6 +490,8 @@ test("rejects v1 documents with malformed work logs", () => {
     viewState: {
       hasSelectedListTasksFilter: false,
       listTasksFilter: "all",
+      hasSelectedListViewMode: false,
+      listViewMode: "summary",
     },
   });
 

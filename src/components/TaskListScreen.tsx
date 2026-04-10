@@ -1,6 +1,7 @@
 import {
   Action,
   ActionPanel,
+  Icon,
   List,
   Toast,
   openExtensionPreferences,
@@ -13,6 +14,7 @@ import {
   type TaskActionSpec,
 } from "./task-action-specs";
 import { getDueSoonDays } from "../lib/config";
+import { formatTaskDate, fromCanonicalDateString } from "../lib/date";
 import {
   getRaylogErrorMessage,
   isRaylogCorruptionError,
@@ -27,6 +29,7 @@ import {
 import {
   getTaskActionIcon,
   getTaskFilterIcon,
+  getTaskIndicatorIcon,
   getTaskStatusIcon,
 } from "../lib/task-visuals";
 import {
@@ -34,6 +37,7 @@ import {
   matchesTaskSearch,
 } from "../lib/task-presentation";
 import type {
+  TaskListViewMode,
   TaskLogStatusBehavior,
   TaskRecord,
   TaskViewFilter,
@@ -55,7 +59,7 @@ export default function TaskListScreen({
   notePath,
   taskIds,
   selectedTaskId,
-  navigationTitle = "Raylog Tasks",
+  navigationTitle,
   emptyTitle,
   emptyDescription,
   hideFilters = false,
@@ -68,10 +72,15 @@ export default function TaskListScreen({
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [searchText, setSearchText] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<TaskViewFilter>("all");
+  const [selectedViewMode, setSelectedViewMode] =
+    useState<TaskListViewMode>("summary");
   const [selectedListItemId, setSelectedListItemId] = useState<string>();
   const [visibleItemCount, setVisibleItemCount] = useState(pageSize);
   const [loadError, setLoadError] = useState<string>();
   const effectiveSelectedFilter = selectedTaskId ? "all" : selectedFilter;
+  const currentNavigationTitle =
+    navigationTitle ??
+    (selectedViewMode === "summary" ? "Task Summary" : "Task List");
 
   const loadTasks = useCallback(async () => {
     const nextTasks = await repository.listTasks();
@@ -81,14 +90,18 @@ export default function TaskListScreen({
   const loadInitialState = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [nextTasks, nextFilter] = await Promise.all([
+      const [nextTasks, nextFilter, nextViewMode] = await Promise.all([
         repository.listTasks(),
         selectedTaskId
           ? Promise.resolve<TaskViewFilter>("all")
           : repository.getListTasksFilter(),
+        selectedTaskId
+          ? Promise.resolve<TaskListViewMode>("summary")
+          : repository.getListViewMode(),
       ]);
       setTasks(nextTasks);
       setSelectedFilter(nextFilter);
+      setSelectedViewMode(nextViewMode);
       setLoadError(undefined);
     } catch (error) {
       setTasks([]);
@@ -118,6 +131,28 @@ export default function TaskListScreen({
 
       try {
         await repository.setListTasksFilter(filter);
+      } catch (error) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: isRaylogCorruptionError(error)
+            ? "Raylog database is corrupted"
+            : "Unable to save task view",
+          message: getRaylogErrorMessage(
+            error,
+            "Unable to save the selected task view.",
+          ),
+        });
+      }
+    },
+    [repository],
+  );
+
+  const handleSelectViewMode = useCallback(
+    async (viewMode: TaskListViewMode) => {
+      setSelectedViewMode(viewMode);
+
+      try {
+        await repository.setListViewMode(viewMode);
       } catch (error) {
         await showToast({
           style: Toast.Style.Failure,
@@ -186,9 +221,11 @@ export default function TaskListScreen({
   return (
     <List
       isLoading={isLoading}
-      isShowingDetail={filteredTasks.length > 0}
-      selectedItemId={selectedTaskId}
-      navigationTitle={navigationTitle}
+      isShowingDetail={
+        selectedViewMode === "summary" && filteredTasks.length > 0
+      }
+      selectedItemId={selectedTaskId ?? selectedListItemId}
+      navigationTitle={currentNavigationTitle}
       searchBarPlaceholder="Search tasks by header or body"
       onSearchTextChange={setSearchText}
       onSelectionChange={(id) => setSelectedListItemId(id ?? undefined)}
@@ -230,6 +267,12 @@ export default function TaskListScreen({
               )}
 
               <ActionPanel.Section>
+                <ViewModeAction
+                  viewMode={selectedViewMode}
+                  onSelectViewMode={handleSelectViewMode}
+                />
+              </ActionPanel.Section>
+              <ActionPanel.Section>
                 <Action.Push
                   title="Add Task"
                   icon={getTaskActionIcon("Add Task")}
@@ -268,6 +311,8 @@ export default function TaskListScreen({
             hideFilters={hideFilters}
             taskLogStatusBehavior={taskLogStatusBehavior}
             onSelectFilter={handleSelectFilter}
+            onSelectViewMode={handleSelectViewMode}
+            viewMode={selectedViewMode}
             isSelected={task.id === (selectedTaskId ?? selectedListItemId)}
           />
         ))
@@ -279,10 +324,12 @@ export default function TaskListScreen({
 interface TaskItemProps {
   notePath: string;
   onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void;
+  onSelectViewMode: (viewMode: TaskListViewMode) => Promise<void> | void;
   task: TaskRecord;
   onReload: () => Promise<void>;
   hideFilters: boolean;
   taskLogStatusBehavior: TaskLogStatusBehavior;
+  viewMode: TaskListViewMode;
   isSelected: boolean;
 }
 
@@ -350,13 +397,16 @@ function TaskFilterActions({
 function TaskItem({
   notePath,
   onSelectFilter,
+  onSelectViewMode,
   task,
   onReload,
   hideFilters,
   taskLogStatusBehavior,
+  viewMode,
   isSelected,
 }: TaskItemProps) {
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
+  const listAccessories = useMemo(() => buildTaskListAccessories(task), [task]);
   const actionSpecs = buildTaskListActionSpecs({
     notePath,
     repository,
@@ -370,8 +420,14 @@ function TaskItem({
       id={task.id}
       icon={getTaskStatusIcon(task.status)}
       title={task.header}
+      subtitle={
+        viewMode === "list"
+          ? getTaskBodyPreview(task.body, listAccessories.length)
+          : undefined
+      }
+      accessories={viewMode === "list" ? listAccessories : []}
       detail={
-        isSelected ? (
+        viewMode === "summary" && isSelected ? (
           <List.Item.Detail
             markdown={buildTaskDetailMarkdown(task, { includeTopSpacer: true })}
           />
@@ -383,6 +439,12 @@ function TaskItem({
             {actionSpecs.map((spec) => (
               <RenderedAction key={spec.title} spec={spec} />
             ))}
+          </ActionPanel.Section>
+          <ActionPanel.Section>
+            <ViewModeAction
+              viewMode={viewMode}
+              onSelectViewMode={onSelectViewMode}
+            />
           </ActionPanel.Section>
           {!hideFilters && (
             <TaskFilterActions onSelectFilter={onSelectFilter} />
@@ -398,6 +460,176 @@ function TaskItem({
       }
     />
   );
+}
+
+function ViewModeAction({
+  viewMode,
+  onSelectViewMode,
+}: {
+  viewMode: TaskListViewMode;
+  onSelectViewMode: (viewMode: TaskListViewMode) => Promise<void> | void;
+}) {
+  const nextViewMode = viewMode === "summary" ? "list" : "summary";
+
+  return (
+    <Action
+      title={nextViewMode === "list" ? "Open Task List" : "Open Task Summary"}
+      icon={
+        nextViewMode === "list"
+          ? Icon.AppWindowList
+          : Icon.AppWindowSidebarRight
+      }
+      shortcut={{ modifiers: ["cmd"], key: "f" }}
+      onAction={() => void onSelectViewMode(nextViewMode)}
+    />
+  );
+}
+
+function buildTaskListAccessories(task: TaskRecord): List.Item.Accessory[] {
+  const visibleDateKind = getVisibleDateKind(task);
+  if (!visibleDateKind) {
+    return [];
+  }
+
+  return [
+    createDateAccessory(visibleDateKind, getDateValue(task, visibleDateKind)),
+  ];
+}
+
+function createDateAccessory(
+  kind: "start" | "due" | "completed",
+  value: string | null,
+): List.Item.Accessory {
+  const tone = getDateTone(kind, value);
+  const formattedDate =
+    kind === "completed" ? formatCompletedDate(value) : formatTaskDate(value);
+
+  return {
+    icon: getTaskIndicatorIcon(kind, tone),
+    text: formattedDate,
+    tooltip:
+      kind === "start"
+        ? `Start Date: ${formattedDate}`
+        : kind === "due"
+          ? `Due Date: ${formattedDate}`
+          : `Completed: ${formattedDate}`,
+  };
+}
+
+function getDateTone(
+  kind: "start" | "due" | "completed",
+  value: string | null,
+): "critical" | "warning" | "scheduled" | "inactive" | "info" | "success" {
+  const parsed = fromCanonicalDateString(value);
+  if (!parsed) {
+    return "inactive";
+  }
+
+  if (kind === "start") {
+    return "scheduled";
+  }
+
+  if (kind === "completed") {
+    return "success";
+  }
+
+  const today = new Date();
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const dueDate = new Date(
+    parsed.getFullYear(),
+    parsed.getMonth(),
+    parsed.getDate(),
+  );
+  const differenceInDays =
+    (dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (differenceInDays < 0) {
+    return "critical";
+  }
+
+  if (differenceInDays <= 7) {
+    return "warning";
+  }
+
+  return "scheduled";
+}
+
+function getVisibleDateKind(
+  task: TaskRecord,
+): "start" | "due" | "completed" | undefined {
+  if (task.status === "done" && task.completedAt) {
+    return "completed";
+  }
+
+  if (isFutureDate(task.startDate)) {
+    return "start";
+  }
+
+  return task.dueDate ? "due" : undefined;
+}
+
+function getDateValue(
+  task: TaskRecord,
+  kind: "start" | "due" | "completed",
+): string | null {
+  switch (kind) {
+    case "start":
+      return task.startDate;
+    case "due":
+      return task.dueDate;
+    case "completed":
+      return task.completedAt;
+  }
+}
+
+function isFutureDate(value: string | null): boolean {
+  const parsed = fromCanonicalDateString(value);
+  if (!parsed) {
+    return false;
+  }
+
+  const today = new Date();
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const candidateDate = new Date(
+    parsed.getFullYear(),
+    parsed.getMonth(),
+    parsed.getDate(),
+  );
+
+  return candidateDate.getTime() > startOfToday.getTime();
+}
+
+function getTaskBodyPreview(body: string, accessoryCount = 0): string {
+  const preview = body.replace(/\s+/g, " ").trim();
+  if (preview.length === 0) {
+    return "No body";
+  }
+
+  const maxLength = accessoryCount > 0 ? 40 : 72;
+  return preview.length > maxLength
+    ? `${preview.slice(0, maxLength - 1).trimEnd()}…`
+    : preview;
+}
+
+function formatCompletedDate(value: string | null): string {
+  const parsed = fromCanonicalDateString(value);
+  if (!parsed) {
+    return "Not set";
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function RenderedAction({ spec }: { spec: TaskActionSpec }) {

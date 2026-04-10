@@ -3,6 +3,7 @@ import { isTaskViewFilter } from "./tasks";
 import { RaylogParseError, RaylogSchemaError } from "./storage-errors";
 import type {
   RaylogDocument,
+  TaskListViewMode,
   TaskRecord,
   TaskStatus,
   TaskWorkLogRecord,
@@ -15,6 +16,8 @@ export function createEmptyDocument(): RaylogDocument {
     viewState: {
       hasSelectedListTasksFilter: false,
       listTasksFilter: "all",
+      hasSelectedListViewMode: false,
+      listViewMode: "summary",
     },
   };
 }
@@ -127,7 +130,18 @@ function normalizeViewState(value: unknown): RaylogDocument["viewState"] {
     listTasksFilter: isTaskViewFilter(candidate.listTasksFilter)
       ? candidate.listTasksFilter
       : "all",
+    hasSelectedListViewMode:
+      typeof candidate.hasSelectedListViewMode === "boolean"
+        ? candidate.hasSelectedListViewMode
+        : false,
+    listViewMode: isTaskListViewMode(candidate.listViewMode)
+      ? candidate.listViewMode
+      : "summary",
   };
+}
+
+function isTaskListViewMode(value: unknown): value is TaskListViewMode {
+  return value === "summary" || value === "list";
 }
 
 function requireString(value: unknown, label: string): string {

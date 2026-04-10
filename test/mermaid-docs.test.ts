@@ -57,8 +57,14 @@ test("development docs include the complete validated command flow", async () =>
   assertEdge(
     parsed,
     "Storage note configured and valid?",
-    "Yes, launch List Tasks",
-    "Task list with detail pane",
+    "Yes, launch last used list layout",
+    "Task summary with detail pane",
+  );
+  assertEdge(
+    parsed,
+    "Storage note configured and valid?",
+    "Yes, launch last used list layout",
+    "Task list without detail pane",
   );
   assertEdge(
     parsed,
@@ -66,21 +72,54 @@ test("development docs include the complete validated command flow", async () =>
     "Yes, launch Add Task",
     "Standalone Add Task form",
   );
-  assertEdge(parsed, "Task list with detail pane", "Enter", "View Task window");
   assertEdge(
     parsed,
-    "Task list with detail pane",
+    "Task summary with detail pane",
+    "Enter",
+    "View Task window",
+  );
+  assertEdge(
+    parsed,
+    "Task summary with detail pane",
+    "Cmd+F",
+    "Task list without detail pane",
+  );
+  assertEdge(
+    parsed,
+    "Task summary with detail pane",
     "Cmd+L",
     "Edit Task form (new log focused)",
   );
   assertEdge(
     parsed,
-    "Task list with detail pane",
+    "Task summary with detail pane",
     "Cmd+Shift+C",
     "Complete selected task",
   );
-  assertEdge(parsed, "Task list with detail pane", "Cmd+N", "Add Task form");
-  assertEdge(parsed, "Task list with detail pane", "Cmd+E", "Edit Task form");
+  assertEdge(
+    parsed,
+    "Task summary with detail pane",
+    "Cmd+N",
+    "Add Task form",
+  );
+  assertEdge(
+    parsed,
+    "Task summary with detail pane",
+    "Cmd+E",
+    "Edit Task form",
+  );
+  assertEdge(
+    parsed,
+    "Task list without detail pane",
+    "Enter",
+    "View Task window",
+  );
+  assertEdge(
+    parsed,
+    "Task list without detail pane",
+    "Cmd+F",
+    "Task summary with detail pane",
+  );
   assertEdge(
     parsed,
     "Full-window task detail",
@@ -111,7 +150,13 @@ test("development docs include the complete validated command flow", async () =>
     parsed,
     "Current task in menu bar",
     "Open Task List",
-    "Task list with detail pane",
+    "Task summary with detail pane",
+  );
+  assertEdge(
+    parsed,
+    "Current task in menu bar",
+    "Open Task List",
+    "Task list without detail pane",
   );
   assertEdge(
     parsed,
@@ -152,10 +197,19 @@ test("readme includes the simplified user-facing window flow", async () => {
   assertEdge(parsed, "List Tasks", "", "Storage note valid");
   assertEdge(parsed, "Add Task", "", "Storage note valid");
   assertEdge(parsed, "Storage note valid", "No", "Setup or reset state");
-  assertEdge(parsed, "Storage note valid", "Yes", "List Tasks");
+  assertEdge(parsed, "List Tasks", "Open last used view", "Task Summary");
+  assertEdge(parsed, "List Tasks", "Open last used view", "Task List");
 
-  assertEdge(parsed, "List Tasks", "Enter", "View Task");
-  assertEdge(parsed, "List Tasks", "Cmd+L", "Edit Task Form (new log focused)");
+  assertEdge(parsed, "Task Summary", "Enter", "View Task");
+  assertEdge(parsed, "Task Summary", "Cmd+F", "Task List");
+  assertEdge(
+    parsed,
+    "Task Summary",
+    "Cmd+L",
+    "Edit Task Form (new log focused)",
+  );
+  assertEdge(parsed, "Task List", "Enter", "View Task");
+  assertEdge(parsed, "Task List", "Cmd+F", "Task Summary");
   assertEdge(
     parsed,
     "View Task",
