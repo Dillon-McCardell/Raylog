@@ -105,20 +105,8 @@ export default function TaskListScreen({
   useEffect(() => {
     if (selectedTaskId) {
       setSelectedListItemId(selectedTaskId);
-      return;
     }
-
-    setSelectedListItemId((currentSelection) => {
-      if (
-        currentSelection &&
-        tasks.some((task) => task.id === currentSelection)
-      ) {
-        return currentSelection;
-      }
-
-      return tasks[0]?.id;
-    });
-  }, [selectedTaskId, tasks]);
+  }, [selectedTaskId]);
 
   useEffect(() => {
     setVisibleItemCount(pageSize);
@@ -183,11 +171,23 @@ export default function TaskListScreen({
   const visibleTasks = filteredTasks.slice(0, visibleItemCount);
   const hasMoreVisibleTasks = visibleTasks.length < filteredTasks.length;
 
+  useEffect(() => {
+    setSelectedListItemId((currentSelection) => {
+      if (!currentSelection) {
+        return currentSelection;
+      }
+
+      return filteredTasks.some((task) => task.id === currentSelection)
+        ? currentSelection
+        : undefined;
+    });
+  }, [filteredTasks]);
+
   return (
     <List
       isLoading={isLoading}
       isShowingDetail={filteredTasks.length > 0}
-      selectedItemId={selectedTaskId ?? selectedListItemId}
+      selectedItemId={selectedTaskId}
       navigationTitle={navigationTitle}
       searchBarPlaceholder="Search tasks by header or body"
       onSearchTextChange={setSearchText}
