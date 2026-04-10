@@ -1,5 +1,8 @@
-import { getPreferenceValues } from "@raycast/api";
+import { Cache, getPreferenceValues } from "@raycast/api";
 import type { TaskLogStatusBehavior } from "./types";
+
+const cache = new Cache();
+const STORAGE_NOTE_PATH_CACHE_KEY = "configured-storage-note-path";
 
 interface SharedPreferences {
   storageNotePath?: string;
@@ -15,8 +18,23 @@ interface ListTasksPreferences extends SharedPreferences {
 
 export function getConfiguredStorageNotePath(): string | undefined {
   const preferences = getPreferenceValues<SharedPreferences>();
-  const path = preferences.storageNotePath?.trim();
-  return path ? path : undefined;
+  const preferencePath = preferences.storageNotePath?.trim();
+  if (preferencePath) {
+    return preferencePath;
+  }
+
+  const cachedPath = cache.get(STORAGE_NOTE_PATH_CACHE_KEY)?.trim();
+  return cachedPath ? cachedPath : undefined;
+}
+
+export function setConfiguredStorageNotePath(path: string): void {
+  const trimmedPath = path.trim();
+  if (!trimmedPath) {
+    cache.remove(STORAGE_NOTE_PATH_CACHE_KEY);
+    return;
+  }
+
+  cache.set(STORAGE_NOTE_PATH_CACHE_KEY, trimmedPath);
 }
 
 export function getEnabledListMetadata(): {

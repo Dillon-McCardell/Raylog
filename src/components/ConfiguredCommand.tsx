@@ -2,18 +2,21 @@ import {
   Action,
   ActionPanel,
   Alert,
+  Form,
   Icon,
   List,
   Toast,
   confirmAlert,
-  environment,
   openExtensionPreferences,
   showToast,
 } from "@raycast/api";
 import fs from "fs";
 import path from "path";
 import { ReactNode, useEffect, useState } from "react";
-import { getConfiguredStorageNotePath } from "../lib/config";
+import {
+  getConfiguredStorageNotePath,
+  setConfiguredStorageNotePath,
+} from "../lib/config";
 import { RAYLOG_SCHEMA_VERSION } from "../lib/constants";
 import { getTaskActionIcon } from "../lib/task-visuals";
 import {
@@ -59,7 +62,7 @@ export default function ConfiguredCommand({
 
     if (!configuredNotePath) {
       setNotePath(undefined);
-      setMessage("Configure a storage note in Raycast Settings to use Raylog.");
+      setMessage("Choose a markdown file for Raylog storage.");
       setIsLoading(false);
       return;
     }
@@ -69,19 +72,37 @@ export default function ConfiguredCommand({
       setNotePath(configuredNotePath);
       setMessage(undefined);
     } catch (error) {
+      let resolvedError = error;
+
+      if (
+        error instanceof RaylogInitializationRequiredError &&
+        (await isMarkdownFileEmpty(configuredNotePath))
+      ) {
+        try {
+          await resetStorageNote(configuredNotePath);
+          await ensureStorageNote(configuredNotePath);
+          setNotePath(configuredNotePath);
+          setMessage(undefined);
+          return;
+        } catch (initializationError) {
+          resolvedError = initializationError;
+        }
+      }
+
       setNotePath(undefined);
       setMessage(
-        getRaylogErrorMessage(error, "Unable to load Raylog storage."),
+        getRaylogErrorMessage(resolvedError, "Unable to load Raylog storage."),
       );
       setCanGenerateDatabase(
-        error instanceof RaylogInitializationRequiredError,
+        resolvedError instanceof RaylogInitializationRequiredError,
       );
       setCanReset(
-        error instanceof RaylogParseError || error instanceof RaylogSchemaError,
+        resolvedError instanceof RaylogParseError ||
+          resolvedError instanceof RaylogSchemaError,
       );
-      setIsSchemaError(error instanceof RaylogSchemaError);
-      setIsCorruptedStorage(isRaylogCorruptionError(error));
-      if (error instanceof RaylogSchemaError) {
+      setIsSchemaError(resolvedError instanceof RaylogSchemaError);
+      setIsCorruptedStorage(isRaylogCorruptionError(resolvedError));
+      if (resolvedError instanceof RaylogSchemaError) {
         setCurrentSchemaVersion(
           await readSchemaVersionFromNote(configuredNotePath),
         );
@@ -125,10 +146,10 @@ export default function ConfiguredCommand({
     }
 
     const confirmed = await confirmAlert({
-      title: "Generate New Task Database?",
-      message: `Create a fresh empty Raylog database in "${path.basename(configuredNotePath)}". Markdown outside the Raylog-managed block will be preserved.`,
+      title: "Create Raylog Database?",
+      message: `Create a Raylog database in "${path.basename(configuredNotePath)}"? Existing markdown outside the Raylog block will be preserved.`,
       primaryAction: {
-        title: "Generate Database",
+        title: "Create Database",
         style: Alert.ActionStyle.Default,
       },
     });
@@ -142,7 +163,7 @@ export default function ConfiguredCommand({
       await resetStorageNote(configuredNotePath);
       await showToast({
         style: Toast.Style.Success,
-        title: "Task database created",
+        title: "Raylog database created",
       });
       await loadConfiguredNote();
     } catch (error) {
@@ -158,18 +179,37 @@ export default function ConfiguredCommand({
     }
   }
 
+  async function handleConfigureStorage(notePath: string) {
+    setConfiguredStorageNotePath(notePath);
+    await loadConfiguredNote();
+  }
+
   if (isLoading) {
     return <List isLoading />;
   }
 
   if (!notePath) {
+    if (
+      !canGenerateDatabase &&
+      !canReset &&
+      !isSchemaError &&
+      !isCorruptedStorage
+    ) {
+      return (
+        <StorageNoteSetupForm
+          message={
+            message ?? "Choose the markdown file Raylog should use for storage."
+          }
+          onSubmit={handleConfigureStorage}
+        />
+      );
+    }
+
     return (
       <List>
         <List.EmptyView
           icon={
-            isCorruptedStorage || isSchemaError
-              ? Icon.Warning
-              : path.join(environment.assetsPath, "icon-empty-view.png")
+            isCorruptedStorage || isSchemaError ? Icon.Warning : Icon.Document
           }
           title={
             isSchemaError
@@ -179,9 +219,7 @@ export default function ConfiguredCommand({
                 : "Set Up Raylog Storage"
           }
           description={buildEmptyStateDescription({
-            message:
-              message ??
-              "Configure a storage note in Raycast Settings to use Raylog.",
+            message: message ?? "Choose a markdown file for Raylog storage.",
             configuredNotePath: getConfiguredStorageNotePath(),
             canGenerateDatabase,
             isSchemaError,
@@ -191,7 +229,7 @@ export default function ConfiguredCommand({
             <ActionPanel>
               {canGenerateDatabase && (
                 <Action
-                  title="Generate New Task Database"
+                  title="Create Raylog Database"
                   icon={getTaskActionIcon("Add Task")}
                   onAction={handleGenerateStorage}
                 />
@@ -218,6 +256,76 @@ export default function ConfiguredCommand({
   return <>{children(notePath)}</>;
 }
 
+function StorageNoteSetupForm({
+  message,
+  onSubmit,
+}: {
+  message: string;
+  onSubmit: (notePath: string) => Promise<void>;
+}) {
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [error, setError] = useState<string>();
+
+  async function handleSubmit() {
+    const selectedPath = selectedPaths[0]?.trim();
+    if (!selectedPath) {
+      setError("Choose a markdown file to continue.");
+      return;
+    }
+
+    setError(undefined);
+
+    try {
+      await onSubmit(selectedPath);
+    } catch (submitError) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Unable to use storage note",
+        message: getRaylogErrorMessage(
+          submitError,
+          "Unable to use the selected storage note.",
+        ),
+      });
+    }
+  }
+
+  return (
+    <Form
+      navigationTitle="Set Up Raylog Storage"
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm
+            title="Use File"
+            icon={getTaskActionIcon("Add Task")}
+            onSubmit={handleSubmit}
+          />
+          <Action
+            title="Open Extension Preferences"
+            icon={getTaskActionIcon("Open Extension Preferences")}
+            onAction={openExtensionPreferences}
+          />
+        </ActionPanel>
+      }
+    >
+      <Form.Description title="Storage" text={message} />
+      <Form.FilePicker
+        id="storageNotePath"
+        title="Storage Note"
+        allowMultipleSelection={false}
+        canChooseDirectories={false}
+        value={selectedPaths}
+        error={error}
+        onChange={(paths) => {
+          setSelectedPaths(paths);
+          if (error && paths[0]?.trim()) {
+            setError(undefined);
+          }
+        }}
+      />
+    </Form>
+  );
+}
+
 function buildEmptyStateDescription({
   message,
   configuredNotePath,
@@ -232,14 +340,14 @@ function buildEmptyStateDescription({
   currentSchemaVersion?: number;
 }): string {
   if (canGenerateDatabase) {
-    return `Your task storage note "${path.basename(configuredNotePath ?? "note.md")}" appears to not contain a valid database format. Would you like to generate a new task database?`;
+    return `"${path.basename(configuredNotePath ?? "note.md")}" does not have a Raylog database yet. Create one to continue.`;
   }
 
   if (!isSchemaError) {
     return message;
   }
 
-  return `Current Raylog requires data schema v${RAYLOG_SCHEMA_VERSION}, but this note is on v${currentSchemaVersion ?? "?"}. Reset the storage note to continue.`;
+  return `"${path.basename(configuredNotePath ?? "note.md")}" uses schema v${currentSchemaVersion ?? "?"}. Raylog needs v${RAYLOG_SCHEMA_VERSION}. Reset the file to continue.`;
 }
 
 async function readSchemaVersionFromNote(
@@ -256,5 +364,14 @@ async function readSchemaVersionFromNote(
     return Number.isNaN(parsed) ? undefined : parsed;
   } catch {
     return undefined;
+  }
+}
+
+async function isMarkdownFileEmpty(notePath: string): Promise<boolean> {
+  try {
+    const markdown = await fs.promises.readFile(notePath, "utf8");
+    return markdown.trim().length === 0;
+  } catch {
+    return false;
   }
 }
