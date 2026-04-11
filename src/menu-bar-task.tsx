@@ -10,8 +10,13 @@ import {
 } from "@raycast/api";
 import path from "path";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getRelativeDueLabel, isActiveTaskStatus } from "./lib/tasks";
-import { getTaskActionIcon, getTaskStatusIcon } from "./lib/task-visuals";
+import { buildMenuBarTaskSubmenuSections } from "./lib/menu-bar-task-submenus";
+import { buildMenuBarTaskActionSpecs } from "./lib/task-flow";
+import {
+  getTaskActionIcon,
+  getTaskIndicatorIcon,
+  getTaskStatusIcon,
+} from "./lib/task-visuals";
 import { readMenuBarCache } from "./lib/menu-bar-cache";
 import { refreshMenuBarState } from "./lib/menu-bar-state";
 import { createMenuBarRepository } from "./lib/menu-bar-state-runtime";
@@ -50,30 +55,99 @@ export default function Command() {
     void loadMenuBarTasks();
   }, [loadMenuBarTasks]);
 
-  const handleCompleteCurrentTask = useCallback(async () => {
-    if (
-      !repository ||
-      !currentTask ||
-      !isActiveTaskStatus(currentTask.status)
-    ) {
-      return;
-    }
+  const handleTaskAction = useCallback(
+    async (task: TaskRecord, action: "complete" | "start" | "archive") => {
+      if (!repository) {
+        return;
+      }
 
-    try {
-      await repository.completeTask(currentTask.id);
-      await showToast({
-        style: Toast.Style.Success,
-        title: "Task completed",
-      });
-      await loadMenuBarTasks();
-    } catch (error) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Unable to complete task",
-        message: getRaylogErrorMessage(error, "Unable to complete task."),
-      });
-    }
-  }, [currentTask, loadMenuBarTasks, repository]);
+      const actionHandlers = {
+        complete: async () => repository.completeTask(task.id),
+        start: async () => repository.startTask(task.id),
+        archive: async () => repository.archiveTask(task.id),
+      } as const;
+
+      const successTitles = {
+        complete: "Task completed",
+        start: "Task started",
+        archive: "Task archived",
+      } as const;
+
+      const failureTitles = {
+        complete: "Unable to complete task",
+        start: "Unable to start task",
+        archive: "Unable to archive task",
+      } as const;
+
+      try {
+        await actionHandlers[action]();
+        await showToast({
+          style: Toast.Style.Success,
+          title: successTitles[action],
+        });
+        await loadMenuBarTasks();
+      } catch (error) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: failureTitles[action],
+          message: getRaylogErrorMessage(error, `${failureTitles[action]}.`),
+        });
+      }
+    },
+    [loadMenuBarTasks, repository],
+  );
+
+  const taskSections = useMemo(
+    () => buildMenuBarTaskSubmenuSections(currentTask, menuTasks),
+    [currentTask, menuTasks],
+  );
+
+  const openTask = useCallback((taskId: string) => {
+    void launchCommand({
+      name: "list-tasks",
+      type: LaunchType.UserInitiated,
+      context: { selectedTaskId: taskId },
+    });
+  }, []);
+
+  const openTaskList = useCallback(() => {
+    void launchCommand({
+      name: "list-tasks",
+      type: LaunchType.UserInitiated,
+    });
+  }, []);
+
+  if (!repository && !currentTask) {
+    return (
+      <MenuBarExtra
+        icon={{
+          source: {
+            light: path.join(environment.assetsPath, "menu-bar-icon-light.svg"),
+            dark: path.join(environment.assetsPath, "menu-bar-icon-dark.svg"),
+          },
+        }}
+        isLoading={isLoading}
+        title={title}
+        tooltip={tooltip}
+      >
+        <MenuBarExtra.Section title="Current Task">
+          <MenuBarExtra.Item title={title} />
+        </MenuBarExtra.Section>
+        <MenuBarExtra.Section title="Actions">
+          <MenuBarExtra.Item
+            title="Open Task List"
+            icon={getTaskActionIcon("Open Task")}
+            onAction={openTaskList}
+          />
+          <MenuBarExtra.Item
+            title="Open Extension Preferences"
+            icon={getTaskActionIcon("Open Extension Preferences")}
+            onAction={openExtensionPreferences}
+          />
+        </MenuBarExtra.Section>
+      </MenuBarExtra>
+    );
+  }
 
   return (
     <MenuBarExtra
@@ -87,61 +161,50 @@ export default function Command() {
       title={title}
       tooltip={tooltip}
     >
-      <MenuBarExtra.Section title="Current Task">
-        <MenuBarExtra.Item
-          title={title}
-          subtitle={currentTask ? buildTaskSubtitle(currentTask) : undefined}
-          icon={currentTask ? getTaskStatusIcon(currentTask.status) : undefined}
-          onAction={
-            currentTask
-              ? () =>
-                  launchCommand({
-                    name: "list-tasks",
-                    type: LaunchType.UserInitiated,
-                    context: { selectedTaskId: currentTask.id },
-                  })
-              : undefined
-          }
-        />
-        {currentTask && isActiveTaskStatus(currentTask.status) && (
-          <MenuBarExtra.Item
-            title="Complete Current Task"
-            icon={getTaskActionIcon("Complete Task")}
-            onAction={handleCompleteCurrentTask}
-          />
-        )}
-      </MenuBarExtra.Section>
-      {menuTasks.length > 0 && (
-        <MenuBarExtra.Section title="Next 5 Tasks">
-          {menuTasks
-            .filter((task) => task.id !== currentTask?.id)
-            .map((task) => (
-              <MenuBarExtra.Item
-                key={task.id}
-                title={task.header}
-                subtitle={buildTaskSubtitle(task)}
-                icon={getTaskStatusIcon(task.status)}
-                onAction={() =>
-                  launchCommand({
-                    name: "list-tasks",
-                    type: LaunchType.UserInitiated,
-                    context: { selectedTaskId: task.id },
-                  })
-                }
-              />
-            ))}
+      {taskSections.length === 0 ? (
+        <MenuBarExtra.Section title="Current Task">
+          <MenuBarExtra.Item title={title} />
         </MenuBarExtra.Section>
+      ) : (
+        taskSections.map((section) => (
+          <MenuBarExtra.Section key={section.title} title={section.title}>
+            {section.items.map((item) => (
+              <MenuBarExtra.Submenu
+                key={item.task.id}
+                title={item.task.header}
+                icon={getTaskStatusIcon(item.task.status)}
+              >
+                {item.dueLabel && item.dueTone ? (
+                  <MenuBarExtra.Item
+                    title={item.dueLabel}
+                    icon={getTaskIndicatorIcon("due", item.dueTone)}
+                  />
+                ) : null}
+                {buildMenuBarTaskActionSpecs(item.task).map((action) => (
+                  <MenuBarExtra.Item
+                    key={`${item.task.id}-${action.title}`}
+                    title={action.title}
+                    icon={getTaskActionIcon(action.title)}
+                    onAction={() => {
+                      if (action.kind === "target") {
+                        openTask(item.task.id);
+                        return;
+                      }
+
+                      void handleTaskAction(item.task, action.action);
+                    }}
+                  />
+                ))}
+              </MenuBarExtra.Submenu>
+            ))}
+          </MenuBarExtra.Section>
+        ))
       )}
       <MenuBarExtra.Section title="Actions">
         <MenuBarExtra.Item
           title="Open Task List"
           icon={getTaskActionIcon("Open Task")}
-          onAction={() =>
-            launchCommand({
-              name: "list-tasks",
-              type: LaunchType.UserInitiated,
-            })
-          }
+          onAction={openTaskList}
         />
         <MenuBarExtra.Item
           title="Open Extension Preferences"
@@ -151,9 +214,4 @@ export default function Command() {
       </MenuBarExtra.Section>
     </MenuBarExtra>
   );
-}
-
-function buildTaskSubtitle(task: TaskRecord): string | undefined {
-  const relativeDueLabel = getRelativeDueLabel(task.dueDate);
-  return relativeDueLabel ? `- ${relativeDueLabel}` : undefined;
 }

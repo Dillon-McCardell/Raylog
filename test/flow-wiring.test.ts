@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildMenuBarTaskActionSpecs,
   buildTaskDetailActionSpecs,
   buildTaskListActionSpecs,
 } from "../src/lib/task-flow";
@@ -118,6 +119,42 @@ test("TaskDetailView Cmd+Shift+C completes the task and reloads in place", async
 
   await completeTask?.run();
   assert.deepEqual(events, ["complete:task-id", "reload"]);
+});
+
+test("menu bar open task exposes start, archive, and open actions", () => {
+  const specs = buildMenuBarTaskActionSpecs(createTask({ status: "open" }));
+
+  assert.deepEqual(
+    specs.map((spec) => spec.title),
+    ["Start Task", "Archive Task", "Open Task"],
+  );
+});
+
+test("menu bar in-progress task exposes complete, archive, and open actions", () => {
+  const specs = buildMenuBarTaskActionSpecs(
+    createTask({ status: "in_progress" }),
+  );
+
+  assert.deepEqual(
+    specs.map((spec) => spec.title),
+    ["Complete Task", "Archive Task", "Open Task"],
+  );
+});
+
+test("menu bar done and archived tasks do not expose active lifecycle actions", () => {
+  const doneSpecs = buildMenuBarTaskActionSpecs(createTask({ status: "done" }));
+  const archivedSpecs = buildMenuBarTaskActionSpecs(
+    createTask({ status: "archived" }),
+  );
+
+  assert.deepEqual(
+    doneSpecs.map((spec) => spec.title),
+    ["Open Task"],
+  );
+  assert.deepEqual(
+    archivedSpecs.map((spec) => spec.title),
+    ["Open Task"],
+  );
 });
 
 test("TaskForm save from log-focused entry triggers parent reload callbacks and returns to the previous screen", async () => {

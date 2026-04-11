@@ -184,6 +184,18 @@ export function getRelativeDueLabel(value?: string | null): string | null {
   return `Due in ${daysUntilDue}d`;
 }
 
+export function getRelativeDueTone(
+  value?: string | null,
+): TaskVisualTone | null {
+  const dueDate = parseTaskDate(value);
+  if (!dueDate) {
+    return null;
+  }
+
+  const daysUntilDue = differenceInCalendarDays(dueDate, startOfToday());
+  return getDueIndicatorTone(daysUntilDue);
+}
+
 export function getTaskListIndicators(
   task: TaskRecord,
   enabledMetadata: EnabledListMetadata,

@@ -87,13 +87,15 @@ flowchart TD
     subgraph MENU["Refresh Menu Bar"]
         M --> M1["Current task in menu bar"]
         M -->|"No storage note"| M3["Set Up Raylog menu bar state"]
-        M1 -->|"Click current task"| E1
-        M1 -->|"Complete Current Task"| M2["Complete current task"]
-        M1 -->|"Click task in Next 5 Tasks"| E1
+        M1 -->|"Click current task"| M2["Menu bar task submenu"]
+        M1 -->|"Click task in Next 5 Tasks"| M2
+        M2 -->|"Open Task"| E1
+        M2 -->|"Start Task"| Q
+        M2 -->|"Complete Task"| P
+        M2 -->|"Archive Task"| S
         M1 -->|"Open Task List"| B1
         M1 -->|"Open Task List"| B2
 
-        M2 --> M1
         M3 -->|"Open Extension Preferences"| Z
     end
 ```

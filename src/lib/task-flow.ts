@@ -30,6 +30,20 @@ export interface TaskMutationActionSpec extends TaskActionBaseSpec {
 
 export type TaskActionSpec = TaskTargetActionSpec | TaskMutationActionSpec;
 
+export interface MenuBarTaskTargetSpec extends TaskActionBaseSpec {
+  kind: "target";
+  action: "open";
+}
+
+export interface MenuBarTaskMutationSpec extends TaskActionBaseSpec {
+  kind: "mutation";
+  action: "complete" | "start" | "archive";
+}
+
+export type MenuBarTaskActionSpec =
+  | MenuBarTaskTargetSpec
+  | MenuBarTaskMutationSpec;
+
 interface SharedTaskActionSpecOptions {
   notePath: string;
   repository: RaylogRepository;
@@ -116,6 +130,44 @@ export function buildTaskDetailActionSpecs(
       showArchiveAction: options.task.status !== "archived",
     }),
   ];
+}
+
+export function buildMenuBarTaskActionSpecs(
+  task: TaskRecord,
+): MenuBarTaskActionSpec[] {
+  const specs: MenuBarTaskActionSpec[] = [];
+
+  if (task.status === "in_progress") {
+    specs.push({
+      kind: "mutation",
+      title: "Complete Task",
+      action: "complete",
+    });
+  }
+
+  if (task.status === "open") {
+    specs.push({
+      kind: "mutation",
+      title: "Start Task",
+      action: "start",
+    });
+  }
+
+  if (task.status === "open" || task.status === "in_progress") {
+    specs.push({
+      kind: "mutation",
+      title: "Archive Task",
+      action: "archive",
+    });
+  }
+
+  specs.push({
+    kind: "target",
+    title: "Open Task",
+    action: "open",
+  });
+
+  return specs;
 }
 
 function buildEditActionSpecs(

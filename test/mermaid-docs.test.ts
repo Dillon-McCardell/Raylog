@@ -138,13 +138,37 @@ test("development docs include the complete validated command flow", async () =>
     parsed,
     "Current task in menu bar",
     "Click current task",
-    "Full-window task detail",
+    "Menu bar task submenu",
   );
   assertEdge(
     parsed,
     "Current task in menu bar",
     "Click task in Next 5 Tasks",
+    "Menu bar task submenu",
+  );
+  assertEdge(
+    parsed,
+    "Menu bar task submenu",
+    "Open Task",
     "Full-window task detail",
+  );
+  assertEdge(
+    parsed,
+    "Menu bar task submenu",
+    "Start Task",
+    "Start task",
+  );
+  assertEdge(
+    parsed,
+    "Menu bar task submenu",
+    "Complete Task",
+    "Complete task",
+  );
+  assertEdge(
+    parsed,
+    "Menu bar task submenu",
+    "Archive Task",
+    "Archive task",
   );
   assertEdge(
     parsed,
@@ -157,12 +181,6 @@ test("development docs include the complete validated command flow", async () =>
     "Current task in menu bar",
     "Open Task List",
     "Task list without detail pane",
-  );
-  assertEdge(
-    parsed,
-    "Current task in menu bar",
-    "Complete Current Task",
-    "Complete current task",
   );
   assertEdge(
     parsed,
@@ -221,15 +239,22 @@ test("readme includes the simplified user-facing window flow", async () => {
     parsed,
     "Refresh Menu Bar",
     "Click current or next task",
-    "View Task",
+    "Task Submenu",
   );
-  assertEdge(parsed, "Refresh Menu Bar", "Open Task List", "List Tasks");
   assertEdge(
     parsed,
-    "Refresh Menu Bar",
-    "Complete Current Task",
-    "Complete Task",
+    "Task Submenu",
+    "Open Task",
+    "View Task",
   );
+  assertEdge(
+    parsed,
+    "Task Submenu",
+    "Start or Complete",
+    "Lifecycle Action",
+  );
+  assertEdge(parsed, "Refresh Menu Bar", "Open Task List", "List Tasks");
+  assertEdge(parsed, "Task Submenu", "Archive Task", "Lifecycle Action");
   assertEdge(
     parsed,
     "Refresh Menu Bar",

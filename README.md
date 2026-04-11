@@ -50,8 +50,8 @@ Use **Refresh Menu Bar** to show your current Raylog task in the macOS menu bar.
 
 - This feature is off by default until you enable the menu bar command in Raycast
 - It only shows active tasks (`Open` and `In Progress`)
-- Clicking the current task or a task in the `Next 5 Tasks` section opens that task
-- You can complete the current task directly from the menu bar dropdown
+- Clicking the current task or a task in the `Next 5 Tasks` section opens a task submenu
+- The submenu lets you `Start Task`, `Complete Task`, `Archive Task`, or `Open Task`
 
 To enable it:
 
@@ -108,10 +108,13 @@ flowchart TD
     J --> E
     K --> E
 
-    M -->|"Click current or next task"| E
+    M -->|"Click current or next task"| M1["Task Submenu"]
     M -->|"Open Task List"| B
-    M -->|"Complete Current Task"| J
     M -->|"No storage note"| X
+
+    M1 -->|"Open Task"| E
+    M1 -->|"Start or Complete"| K
+    M1 -->|"Archive Task"| K["Lifecycle Action"]
 ```
 
 ## Storage Model
