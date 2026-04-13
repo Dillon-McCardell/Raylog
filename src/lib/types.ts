@@ -1,7 +1,8 @@
-export type TaskStatus = "open" | "in_progress" | "done" | "archived";
+export type TaskStatus = "todo" | "in_progress" | "done" | "archived";
 export type TaskViewFilter =
   | "all"
   | "open"
+  | "todo"
   | "in_progress"
   | "due_soon"
   | "done"

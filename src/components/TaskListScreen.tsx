@@ -71,7 +71,7 @@ export default function TaskListScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<TaskViewFilter>("all");
+  const [selectedFilter, setSelectedFilter] = useState<TaskViewFilter>("open");
   const [selectedViewMode, setSelectedViewMode] =
     useState<TaskListViewMode>("summary");
   const [selectedListItemId, setSelectedListItemId] = useState<string>();
@@ -355,6 +355,11 @@ function TaskFilterDropdown({
         value="open"
         title={getTaskFilterLabel("open")}
         icon={getTaskFilterIcon("open")}
+      />
+      <List.Dropdown.Item
+        value="todo"
+        title={getTaskFilterLabel("todo")}
+        icon={getTaskFilterIcon("todo")}
       />
       <List.Dropdown.Item
         value="in_progress"

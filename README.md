@@ -8,7 +8,7 @@ one markdown file, but the workflow is built entirely around Raycast.
 
 ## Features
 
-- Status-driven task lifecycle: `Open`, `In Progress`, `Done`, `Archived`
+- Status-driven task lifecycle: `To Do`, `In Progress`, `Done`, `Archived`
 - Filtered list views for focused review instead of one long mixed list
 - Urgency-aware ordering for active work
 - Optional macOS menu bar task view for active work
@@ -22,10 +22,10 @@ one markdown file, but the workflow is built entirely around Raycast.
 
 Use **List Tasks** to manage work from one command.
 
-- Filter by `All Tasks`, `Open`, `In Progress`, `Due Soon`, `Done`, or `Archived`
-- `All Tasks` includes `Open`, `In Progress`, and `Done`; `Archived` remains a separate view
+- Filter by `All Tasks`, `Open Tasks`, `To Do`, `In Progress`, `Due Soon`, `Done`, or `Archived`
+- `Open Tasks` includes `To Do` and `In Progress`; `All Tasks` also includes `Done`
 - Search task headers and bodies within the active view
-- Jump between task views with `Cmd-1` through `Cmd-6`
+- Jump between task views with `Cmd-1` through `Cmd-7`
 - Use `Cmd+F` to switch between `Task Summary` and the full-width `Task List`
 - The command reopens in the last list layout you used
 - `Task Summary` shows the task body and work logs in the detail pane
@@ -49,7 +49,7 @@ Use **Add Task** to create a task with:
 Use **Refresh Menu Bar** to show your current Raylog task in the macOS menu bar.
 
 - This feature is off by default until you enable the menu bar command in Raycast
-- It only shows active tasks (`Open` and `In Progress`)
+- It only shows active tasks (`To Do` and `In Progress`)
 - Clicking the current task or a task in the `Next 5 Tasks` section opens a task submenu
 - The submenu lets you `Start Task`, `Complete Task`, `Archive Task`, or `Open Task`
 

@@ -33,7 +33,7 @@ export class RaylogRepository {
     const { viewState } = await this.readDocument();
     return viewState.hasSelectedListTasksFilter
       ? viewState.listTasksFilter
-      : "all";
+      : "open";
   }
 
   async setListTasksFilter(filter: TaskViewFilter): Promise<void> {
@@ -83,7 +83,7 @@ export class RaylogRepository {
 
     await this.mutateDocument((document) => {
       const now = new Date().toISOString();
-      const status = input.status ?? "open";
+      const status = input.status ?? "todo";
       const task: TaskRecord = {
         id: nanoid(),
         header: input.header.trim(),
@@ -154,7 +154,7 @@ export class RaylogRepository {
   }
 
   async reopenTask(taskId: string): Promise<TaskRecord> {
-    return this.updateTaskStatus(taskId, "open");
+    return this.updateTaskStatus(taskId, "todo");
   }
 
   async archiveTask(taskId: string): Promise<TaskRecord> {

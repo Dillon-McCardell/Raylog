@@ -15,7 +15,7 @@ export function createEmptyDocument(): RaylogDocument {
     tasks: [],
     viewState: {
       hasSelectedListTasksFilter: false,
-      listTasksFilter: "all",
+      listTasksFilter: "open",
       hasSelectedListViewMode: false,
       listViewMode: "summary",
     },
@@ -180,7 +180,7 @@ function normalizeWorkLogRecord(value: unknown): TaskWorkLogRecord {
 
 function normalizeTaskStatus(value: unknown): TaskStatus {
   if (
-    value === "open" ||
+    value === "todo" ||
     value === "in_progress" ||
     value === "done" ||
     value === "archived"

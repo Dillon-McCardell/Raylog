@@ -121,8 +121,8 @@ test("TaskDetailView Cmd+Shift+C completes the task and reloads in place", async
   assert.deepEqual(events, ["complete:task-id", "reload"]);
 });
 
-test("menu bar open task exposes start, archive, and open actions", () => {
-  const specs = buildMenuBarTaskActionSpecs(createTask({ status: "open" }));
+test("menu bar to-do task exposes start, archive, and open actions", () => {
+  const specs = buildMenuBarTaskActionSpecs(createTask({ status: "todo" }));
 
   assert.deepEqual(
     specs.map((spec) => spec.title),
@@ -371,7 +371,7 @@ function createTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
     header: overrides.header ?? "Task",
     body: overrides.body ?? "Task body",
     workLogs: overrides.workLogs ?? [],
-    status: overrides.status ?? "open",
+    status: overrides.status ?? "todo",
     dueDate: overrides.dueDate ?? null,
     startDate: overrides.startDate ?? null,
     completedAt: overrides.completedAt ?? null,
@@ -397,7 +397,7 @@ function createTaskFormValues(
   return {
     header: overrides.header ?? "Task",
     body: overrides.body ?? "Task body",
-    status: overrides.status ?? "open",
+    status: overrides.status ?? "todo",
     dueDate: overrides.dueDate ?? null,
     startDate: overrides.startDate ?? null,
     workLogs: overrides.workLogs ?? [],

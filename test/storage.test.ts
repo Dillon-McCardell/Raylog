@@ -24,7 +24,7 @@ test("flags an empty markdown note for initialization", async () => {
   );
 });
 
-test("parses a valid v1 markdown note with a Raylog block", () => {
+test("parses a valid v1 markdown note with todo task status", () => {
   const markdown = mergeRaylogMarkdown("# Notes\n", {
     schemaVersion: 1,
     tasks: [
@@ -33,7 +33,7 @@ test("parses a valid v1 markdown note with a Raylog block", () => {
         header: "Header",
         body: "Body",
         workLogs: [],
-        status: "open",
+        status: "todo",
         dueDate: null,
         startDate: null,
         completedAt: null,
@@ -51,7 +51,7 @@ test("parses a valid v1 markdown note with a Raylog block", () => {
 
   const parsed = parseRaylogMarkdown(markdown);
   assert.equal(parsed.hasManagedBlock, true);
-  assert.equal(parsed.document.tasks[0].status, "open");
+  assert.equal(parsed.document.tasks[0].status, "todo");
   assert.equal(parsed.document.tasks[0].dueDate, null);
   assert.equal(parsed.document.viewState.listTasksFilter, "done");
 });
@@ -93,7 +93,7 @@ test("describes malformed task data inside the Raylog block", () => {
               header: "",
               body: "",
               workLogs: [],
-              status: "open",
+              status: "todo",
               dueDate: null,
               startDate: null,
               completedAt: null,
@@ -205,7 +205,7 @@ test("supports the current task lifecycle without clobbering surrounding markdow
   assert.ok(completed.completedAt);
 
   const reopened = await repository.reopenTask(created.id);
-  assert.equal(reopened.status, "open");
+  assert.equal(reopened.status, "todo");
   assert.equal(reopened.completedAt, null);
 
   const archived = await repository.archiveTask(created.id);
@@ -371,7 +371,7 @@ test("failed queued mutations do not block later writes", async () => {
   assert.equal(tasks[0]?.header, "Recovery task");
 });
 
-test("defaults to all for current view state until a filter is explicitly selected", async () => {
+test("defaults to open tasks for current view state until a filter is explicitly selected", async () => {
   const notePath = await createTempMarkdownFile(
     `<!-- raylog:start -->
 \`\`\`json
@@ -388,7 +388,7 @@ test("defaults to all for current view state until a filter is explicitly select
   );
   const repository = new RaylogRepository(notePath);
 
-  assert.equal(await repository.getListTasksFilter(), "all");
+  assert.equal(await repository.getListTasksFilter(), "open");
 });
 
 test("defaults to summary for current view mode until a layout is explicitly selected", async () => {
@@ -448,7 +448,7 @@ test("rejects v1 documents with dependency fields", () => {
         header: "Header",
         body: "",
         workLogs: [],
-        status: "open",
+        status: "todo",
         blockedByTaskIds: ["task-2"],
         dueDate: null,
         startDate: null,
@@ -479,7 +479,7 @@ test("rejects v1 documents with malformed work logs", () => {
         workLogs: [
           { id: "log-1", body: "", createdAt: "2026-03-31T00:00:00.000Z" },
         ],
-        status: "open",
+        status: "todo",
         dueDate: null,
         startDate: null,
         completedAt: null,

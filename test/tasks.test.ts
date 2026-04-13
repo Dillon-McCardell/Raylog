@@ -11,23 +11,23 @@ import {
 } from "../src/lib/tasks";
 import type { TaskRecord } from "../src/lib/types";
 
-test("sorts open tasks by urgency within the open view", () => {
+test("sorts to-do tasks by urgency within the open-tasks view", () => {
   const tasks = [
     createTask({
       id: "no-date",
-      status: "open",
+      status: "todo",
       dueDate: null,
       updatedAt: "2026-03-31T00:00:00.000Z",
     }),
     createTask({
       id: "upcoming",
-      status: "open",
+      status: "todo",
       dueDate: "2099-04-03T00:00:00.000Z",
       updatedAt: "2026-03-31T00:00:00.000Z",
     }),
     createTask({
       id: "overdue",
-      status: "open",
+      status: "todo",
       dueDate: "2026-03-01T00:00:00.000Z",
       updatedAt: "2026-03-31T00:00:00.000Z",
     }),
@@ -41,7 +41,7 @@ test("sorts open tasks by urgency within the open view", () => {
 
 test("all view excludes archived tasks", () => {
   const tasks = [
-    createTask({ id: "open", status: "open" }),
+    createTask({ id: "todo", status: "todo" }),
     createTask({ id: "in-progress", status: "in_progress" }),
     createTask({ id: "done", status: "done" }),
     createTask({ id: "archived", status: "archived" }),
@@ -49,32 +49,51 @@ test("all view excludes archived tasks", () => {
 
   assert.deepEqual(
     filterTasks(tasks, "all", "").map((task) => task.id),
-    ["open", "in-progress", "done"],
+    ["todo", "in-progress", "done"],
   );
 });
 
-test("task filter labels and descriptions clarify all-tasks versus open-only views", () => {
+test("task filter labels and descriptions clarify all-tasks, open-tasks, and to-do views", () => {
   assert.equal(getTaskFilterLabel("all"), "All Tasks");
-  assert.equal(getTaskFilterLabel("open"), "Open");
+  assert.equal(getTaskFilterLabel("open"), "Open Tasks");
+  assert.equal(getTaskFilterLabel("todo"), "To Do");
   assert.equal(
     getTaskFilterDescription("all"),
-    "Includes open, in-progress, and done tasks. Archived tasks stay in their own view.",
+    "Includes to-do, in-progress, and done tasks. Archived tasks stay in their own view.",
   );
   assert.equal(
     getTaskFilterDescription("open"),
-    "Shows only tasks with Open status.",
+    "Shows tasks with To Do or In Progress status.",
+  );
+  assert.equal(
+    getTaskFilterDescription("todo"),
+    "Shows only tasks with To Do status.",
   );
 });
 
-test("due soon only includes open and in-progress tasks", () => {
+test("open filter includes to-do and in-progress tasks only", () => {
+  const tasks = [
+    createTask({ id: "todo", status: "todo" }),
+    createTask({ id: "in-progress", status: "in_progress" }),
+    createTask({ id: "done", status: "done" }),
+    createTask({ id: "archived", status: "archived" }),
+  ];
+
+  assert.deepEqual(
+    filterTasks(tasks, "open", "").map((task) => task.id),
+    ["todo", "in-progress"],
+  );
+});
+
+test("due soon only includes to-do and in-progress tasks", () => {
   const soon = new Date();
   soon.setDate(soon.getDate() + 3);
   const soonIso = soon.toISOString();
 
   const tasks = [
     createTask({
-      id: "open-due",
-      status: "open",
+      id: "todo-due",
+      status: "todo",
       dueDate: soonIso,
     }),
     createTask({
@@ -96,7 +115,7 @@ test("due soon only includes open and in-progress tasks", () => {
 
   assert.deepEqual(
     filterTasks(tasks, "due_soon", "", 7).map((task) => task.id),
-    ["open-due", "active-due"],
+    ["todo-due", "active-due"],
   );
 });
 
@@ -107,7 +126,7 @@ test("uses the configured due soon day threshold", () => {
   const tasks = [
     createTask({
       id: "due-in-three",
-      status: "open",
+      status: "todo",
       dueDate: dueInThreeDays.toISOString(),
     }),
   ];
@@ -340,7 +359,7 @@ test("menu bar task uses the earliest due date among active tasks", () => {
     }),
     createTask({
       id: "later",
-      status: "open",
+      status: "todo",
       dueDate: "2026-04-05T00:00:00.000Z",
     }),
     createTask({
@@ -357,7 +376,7 @@ test("menu bar task falls back to the first active task when none have due dates
   const tasks = [
     createTask({ id: "archived", status: "archived" }),
     createTask({ id: "done", status: "done", dueDate: null }),
-    createTask({ id: "first", status: "open", dueDate: null }),
+    createTask({ id: "first", status: "todo", dueDate: null }),
     createTask({ id: "second", status: "in_progress", dueDate: null }),
   ];
 
@@ -368,13 +387,13 @@ test("menu bar tasks sort by due date when at least one due date exists", () => 
   const tasks = [
     createTask({
       id: "later-due",
-      status: "open",
+      status: "todo",
       dueDate: "2026-04-05T00:00:00.000Z",
       updatedAt: "2026-04-02T00:00:00.000Z",
     }),
     createTask({
       id: "no-due",
-      status: "open",
+      status: "todo",
       dueDate: null,
       updatedAt: "2026-04-03T00:00:00.000Z",
     }),
@@ -396,12 +415,12 @@ test("menu bar tasks compare mixed legacy ISO and YYYY-MM-DD due dates by calend
   const tasks = [
     createTask({
       id: "legacy-iso",
-      status: "open",
+      status: "todo",
       dueDate: "2026-04-03T07:00:00.000Z",
     }),
     createTask({
       id: "date-only",
-      status: "open",
+      status: "todo",
       dueDate: "2026-04-02",
     }),
   ];
@@ -420,8 +439,8 @@ test("menu bar tasks fall back to task list ordering when no due dates exist", (
       updatedAt: "2026-04-01T00:00:00.000Z",
     }),
     createTask({
-      id: "open",
-      status: "open",
+      id: "todo",
+      status: "todo",
       updatedAt: "2026-04-02T00:00:00.000Z",
     }),
     createTask({
@@ -433,7 +452,7 @@ test("menu bar tasks fall back to task list ordering when no due dates exist", (
 
   assert.deepEqual(
     getMenuBarTasks(tasks).map((task) => task.id),
-    ["open", "in-progress"],
+    ["todo", "in-progress"],
   );
 });
 
@@ -443,7 +462,7 @@ function createTask(overrides: Partial<TaskRecord>): TaskRecord {
     header: overrides.header ?? "Task",
     body: overrides.body ?? "",
     workLogs: overrides.workLogs ?? [],
-    status: overrides.status ?? "open",
+    status: overrides.status ?? "todo",
     dueDate: overrides.dueDate ?? null,
     startDate: overrides.startDate ?? null,
     completedAt: overrides.completedAt ?? null,

@@ -85,7 +85,7 @@
           "required": false,
           "default": "auto_start",
           "title": "Status Change on Log",
-          "description": "Choose what happens when logging work on an open task.",
+          "description": "Choose what happens when logging work on a to-do task.",
           "data": [
             {
               "title": "Auto Start Task",

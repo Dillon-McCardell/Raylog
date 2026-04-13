@@ -44,8 +44,9 @@ test("menu bar submenu sections never create a complete current task row", () =>
 });
 
 test("menu bar due label drops the verbose prefix but keeps due metadata", () => {
+  const today = new Date().toISOString().slice(0, 10);
   const sections = buildMenuBarTaskSubmenuSections(
-    createTask({ dueDate: "2026-04-11" }),
+    createTask({ dueDate: today }),
     [],
   );
 
@@ -59,7 +60,7 @@ function createTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
     header: "Task",
     body: "Task body",
     workLogs: [],
-    status: "open",
+    status: "todo",
     dueDate: null,
     startDate: null,
     completedAt: null,

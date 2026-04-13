@@ -141,7 +141,7 @@ async function maybeAdvanceTaskStatus(
   repository: TaskFormRepository,
   confirmAlertImpl?: SubmitTaskFormOptions["confirmAlertImpl"],
 ) {
-  if (taskStatus !== "open") {
+  if (taskStatus !== "todo") {
     return;
   }
 
@@ -153,7 +153,7 @@ async function maybeAdvanceTaskStatus(
     const confirmed = confirmAlertImpl
       ? await confirmAlertImpl({
           title: "Move task to In Progress?",
-          message: "Logging work on an open task can also start the task.",
+          message: "Logging work on a to-do task can also start the task.",
           primaryAction: {
             title: "Start Task",
             style: "default",

@@ -18,7 +18,7 @@ export interface TaskIconVisual {
 
 export function getTaskStatusIcon(status: TaskStatus): Image.ImageLike {
   switch (status) {
-    case "open":
+    case "todo":
       return withTint(Icon.Circle, Color.Purple);
     case "in_progress":
       return withTint(Icon.Play, Color.Blue);
@@ -31,7 +31,7 @@ export function getTaskStatusIcon(status: TaskStatus): Image.ImageLike {
 
 export function getTaskStatusTint(status: TaskStatus): Color.ColorLike {
   switch (status) {
-    case "open":
+    case "todo":
       return Color.Purple;
     case "in_progress":
       return Color.Blue;
@@ -47,6 +47,8 @@ export function getTaskFilterIcon(filter: TaskViewFilter): Image.ImageLike {
     case "all":
       return Icon.List;
     case "open":
+      return withTint(Icon.Layers, Color.Magenta);
+    case "todo":
       return withTint(Icon.Circle, Color.Purple);
     case "in_progress":
       return withTint(Icon.Play, Color.Blue);
@@ -64,7 +66,7 @@ export function getTaskIndicatorIcon(
   tone: TaskVisualTone,
 ): Image.ImageLike {
   if (kind === "start") {
-    return withTint(Icon.Play, getTaskToneColor(tone));
+    return withTint(Icon.Clock, getTaskToneColor(tone));
   }
 
   if (kind === "completed") {
@@ -121,7 +123,9 @@ export function getTaskActionIcon(title: string): Image.ImageLike | undefined {
       return withTint(Icon.Trash, Color.Red);
     case "Show All Tasks":
       return Icon.List;
-    case "Show Open":
+    case "Show Open Tasks":
+      return withTint(Icon.Layers, Color.Magenta);
+    case "Show To Do":
       return withTint(Icon.Circle, Color.Purple);
     case "Show Due Soon":
       return withTint(Icon.Calendar, Color.Orange);

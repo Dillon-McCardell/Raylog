@@ -66,7 +66,7 @@ function createTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
     header: overrides.header ?? "Task",
     body: overrides.body ?? "",
     workLogs: overrides.workLogs ?? [],
-    status: overrides.status ?? "open",
+    status: overrides.status ?? "todo",
     dueDate: overrides.dueDate ?? null,
     startDate: overrides.startDate ?? null,
     completedAt: overrides.completedAt ?? null,

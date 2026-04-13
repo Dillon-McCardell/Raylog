@@ -48,7 +48,7 @@ export default function TaskForm({
   const [values, setValues] = useState<TaskFormValues>({
     header: task?.header ?? "",
     body: task?.body ?? "",
-    status: task?.status ?? "open",
+    status: task?.status ?? "todo",
     dueDate: fromCanonicalDateString(task?.dueDate),
     startDate: fromCanonicalDateString(task?.startDate),
     workLogs: task?.workLogs ?? [],
@@ -107,7 +107,7 @@ export default function TaskForm({
       setValues({
         header: "",
         body: "",
-        status: "open",
+        status: "todo",
         dueDate: null,
         startDate: null,
         workLogs: [],
@@ -206,9 +206,9 @@ export default function TaskForm({
         }
       >
         <Form.Dropdown.Item
-          value="open"
-          title={getTaskStatusLabel("open")}
-          icon={getTaskStatusIcon("open")}
+          value="todo"
+          title={getTaskStatusLabel("todo")}
+          icon={getTaskStatusIcon("todo")}
         />
         <Form.Dropdown.Item
           value="in_progress"

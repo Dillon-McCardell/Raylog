@@ -29,7 +29,7 @@ interface TaskSearchOptions {
 }
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  open: "Open",
+  todo: "To Do",
   in_progress: "In Progress",
   done: "Done",
   archived: "Archived",
@@ -37,7 +37,8 @@ const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 
 const TASK_FILTER_LABELS: Record<TaskViewFilter, string> = {
   all: "All Tasks",
-  open: "Open",
+  open: "Open Tasks",
+  todo: "To Do",
   in_progress: "In Progress",
   due_soon: "Due Soon",
   done: "Done",
@@ -45,17 +46,18 @@ const TASK_FILTER_LABELS: Record<TaskViewFilter, string> = {
 };
 
 const TASK_FILTER_DESCRIPTIONS: Record<TaskViewFilter, string> = {
-  all: "Includes open, in-progress, and done tasks. Archived tasks stay in their own view.",
-  open: "Shows only tasks with Open status.",
+  all: "Includes to-do, in-progress, and done tasks. Archived tasks stay in their own view.",
+  open: "Shows tasks with To Do or In Progress status.",
+  todo: "Shows only tasks with To Do status.",
   in_progress: "Shows only tasks with In Progress status.",
   due_soon:
-    "Shows open and in-progress tasks due within the configured Due Soon window.",
+    "Shows to-do and in-progress tasks due within the configured Due Soon window.",
   done: "Shows only completed tasks.",
   archived: "Shows only archived tasks.",
 };
 
 const OPEN_STATUS_PRIORITY: Record<TaskStatus, number> = {
-  open: 0,
+  todo: 0,
   in_progress: 1,
   done: 2,
   archived: 3,
@@ -77,6 +79,7 @@ export function isTaskViewFilter(value: unknown): value is TaskViewFilter {
   return (
     value === "all" ||
     value === "open" ||
+    value === "todo" ||
     value === "in_progress" ||
     value === "due_soon" ||
     value === "done" ||
@@ -119,7 +122,9 @@ export function matchesTaskFilter(
     case "all":
       return task.status !== "archived";
     case "open":
-      return task.status === "open";
+      return task.status === "todo" || task.status === "in_progress";
+    case "todo":
+      return task.status === "todo";
     case "in_progress":
       return task.status === "in_progress";
     case "due_soon":
@@ -159,7 +164,7 @@ export function validateWorkLogInput(
 }
 
 export function isActiveTaskStatus(status: TaskStatus): boolean {
-  return status === "open" || status === "in_progress";
+  return status === "todo" || status === "in_progress";
 }
 
 export function getRelativeDueLabel(value?: string | null): string | null {

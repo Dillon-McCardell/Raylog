@@ -396,7 +396,7 @@ function createTask(
     header: string;
     body: string;
     workLogs: never[];
-    status: "open" | "in_progress" | "done" | "archived";
+    status: "todo" | "in_progress" | "done" | "archived";
     dueDate: null;
     startDate: null;
     completedAt: null;
@@ -409,7 +409,7 @@ function createTask(
     header: "Task",
     body: "Task body",
     workLogs: [],
-    status: "open" as const,
+    status: "todo" as const,
     dueDate: null,
     startDate: null,
     completedAt: null,

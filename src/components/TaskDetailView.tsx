@@ -108,7 +108,7 @@ export default function TaskDetailView({
           <Detail.Metadata.Label
             title="Due Date"
             text={formatTaskDate(task.dueDate)}
-            icon={getTaskIndicatorIcon("due", "scheduled")}
+            icon={getTaskIndicatorIcon("due", "warning")}
           />
           <Detail.Metadata.Label
             title="Start Date"

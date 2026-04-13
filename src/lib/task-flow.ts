@@ -65,25 +65,28 @@ export function buildTaskFilterActionSpecs(
     createFilterActionSpec("Show All Tasks", createShortcut(["cmd"], "1"), () =>
       onSelectFilter("all"),
     ),
-    createFilterActionSpec("Show Open", createShortcut(["cmd"], "2"), () =>
+    createFilterActionSpec("Show Open Tasks", createShortcut(["cmd"], "2"), () =>
       onSelectFilter("open"),
+    ),
+    createFilterActionSpec("Show To Do", createShortcut(["cmd"], "3"), () =>
+      onSelectFilter("todo"),
     ),
     createFilterActionSpec(
       "Show In Progress",
-      createShortcut(["cmd"], "3"),
+      createShortcut(["cmd"], "4"),
       () => onSelectFilter("in_progress"),
     ),
-    createFilterActionSpec("Show Due Soon", createShortcut(["cmd"], "4"), () =>
+    createFilterActionSpec("Show Due Soon", createShortcut(["cmd"], "5"), () =>
       onSelectFilter("due_soon"),
     ),
     createFilterActionSpec(
       "Show Done Tasks",
-      createShortcut(["cmd"], "5"),
+      createShortcut(["cmd"], "6"),
       () => onSelectFilter("done"),
     ),
     createFilterActionSpec(
       "Show Archived Tasks",
-      createShortcut(["cmd"], "6"),
+      createShortcut(["cmd"], "7"),
       () => onSelectFilter("archived"),
     ),
   ];
@@ -126,7 +129,7 @@ export function buildTaskDetailActionSpecs(
     ...buildLifecycleActionSpecs({
       ...options,
       onDidDelete: options.onDidDelete,
-      showReopenAction: options.task.status !== "open",
+      showReopenAction: options.task.status !== "todo",
       showArchiveAction: options.task.status !== "archived",
     }),
   ];
@@ -145,7 +148,7 @@ export function buildMenuBarTaskActionSpecs(
     });
   }
 
-  if (task.status === "open") {
+  if (task.status === "todo") {
     specs.push({
       kind: "mutation",
       title: "Start Task",
@@ -153,7 +156,7 @@ export function buildMenuBarTaskActionSpecs(
     });
   }
 
-  if (task.status === "open" || task.status === "in_progress") {
+  if (task.status === "todo" || task.status === "in_progress") {
     specs.push({
       kind: "mutation",
       title: "Archive Task",
@@ -225,7 +228,7 @@ function buildLifecycleActionSpecs(
 ): TaskMutationActionSpec[] {
   const specs: TaskMutationActionSpec[] = [];
 
-  if (options.task.status === "open" || options.task.status === "in_progress") {
+  if (options.task.status === "todo" || options.task.status === "in_progress") {
     specs.push({
       kind: "mutation",
       title: "Complete Task",
@@ -238,7 +241,7 @@ function buildLifecycleActionSpecs(
     });
   }
 
-  if (options.task.status === "open") {
+  if (options.task.status === "todo") {
     specs.push({
       kind: "mutation",
       title: "Start Task",
