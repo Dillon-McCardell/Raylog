@@ -68,7 +68,9 @@ export function buildTaskFilterActionSpecs(
     createFilterActionSpec("Show Open Tasks", undefined, () =>
       onSelectFilter("open"),
     ),
-    createFilterActionSpec("Show To Do", undefined, () => onSelectFilter("todo")),
+    createFilterActionSpec("Show To Do", undefined, () =>
+      onSelectFilter("todo"),
+    ),
     createFilterActionSpec("Show In Progress", undefined, () =>
       onSelectFilter("in_progress"),
     ),

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { toCanonicalDateString } from "../src/lib/date";
 import { buildMenuBarTaskSubmenuSections } from "../src/lib/menu-bar-task-submenus";
 import type { TaskRecord } from "../src/lib/types";
 
@@ -44,7 +45,7 @@ test("menu bar submenu sections never create a complete current task row", () =>
 });
 
 test("menu bar due label drops the verbose prefix but keeps due metadata", () => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toCanonicalDateString(new Date());
   const sections = buildMenuBarTaskSubmenuSections(
     createTask({ dueDate: today }),
     [],

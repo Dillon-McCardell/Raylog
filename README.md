@@ -141,9 +141,11 @@ to reset the note to a fresh v1 document.
 
 ## Configuration
 
-Set the **Storage Note** preference in Raycast to any existing `.md` file. Raylog
-will initialize the managed block automatically when the file is empty or missing
-the Raylog block.
+Set the **Storage Note** preference in Raycast to any existing `.md` file using
+Raycast's native file picker in extension preferences. If no storage note is
+configured, Raylog will direct you to extension preferences before the commands
+can load. Once configured, Raylog will initialize the managed block
+automatically when the file is empty or missing the Raylog block.
 
 `List Tasks` also has command-specific preferences for:
 
@@ -161,8 +163,8 @@ visible items at once.
   markdown file.
 - If Raylog reports a schema or parse error, use the in-app reset action to
   reinitialize the managed block.
-- If the setup prompt repeats, open Raycast extension settings and confirm the
-  file path is still valid.
+- If Raylog keeps returning to setup, open Raycast extension preferences and
+  confirm that **Storage Note** still points at a valid markdown file.
 
 ## Development
 

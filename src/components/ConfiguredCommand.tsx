@@ -2,7 +2,6 @@ import {
   Action,
   ActionPanel,
   Alert,
-  Form,
   Icon,
   List,
   Toast,
@@ -13,10 +12,7 @@ import {
 import fs from "fs";
 import path from "path";
 import { ReactNode, useEffect, useState } from "react";
-import {
-  getConfiguredStorageNotePath,
-  setConfiguredStorageNotePath,
-} from "../lib/config";
+import { getConfiguredStorageNotePath } from "../lib/config";
 import { RAYLOG_SCHEMA_VERSION } from "../lib/constants";
 import { getTaskActionIcon } from "../lib/task-visuals";
 import {
@@ -27,7 +23,6 @@ import {
   RaylogParseError,
   RaylogSchemaError,
   resetStorageNote,
-  validateStorageNotePath,
 } from "../lib/storage";
 
 interface ConfiguredCommandProps {
@@ -63,7 +58,9 @@ export default function ConfiguredCommand({
 
     if (!configuredNotePath) {
       setNotePath(undefined);
-      setMessage("Choose a markdown file for Raylog storage.");
+      setMessage(
+        "Choose a markdown file in Raycast extension preferences to continue.",
+      );
       setIsLoading(false);
       return;
     }
@@ -180,26 +177,6 @@ export default function ConfiguredCommand({
     }
   }
 
-  async function handleConfigureStorage(notePath: string) {
-    const trimmedPath = notePath.trim();
-    setIsLoading(true);
-
-    try {
-      await validateStorageNotePath(trimmedPath);
-      await ensureStorageNote(trimmedPath);
-      setConfiguredStorageNotePath(trimmedPath);
-      setNotePath(trimmedPath);
-      setMessage(undefined);
-      setCanReset(false);
-      setCanGenerateDatabase(false);
-      setIsSchemaError(false);
-      setIsCorruptedStorage(false);
-      setCurrentSchemaVersion(undefined);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   if (isLoading) {
     return <List isLoading />;
   }
@@ -212,12 +189,25 @@ export default function ConfiguredCommand({
       !isCorruptedStorage
     ) {
       return (
-        <StorageNoteSetupForm
-          message={
-            message ?? "Choose the markdown file Raylog should use for storage."
-          }
-          onSubmit={handleConfigureStorage}
-        />
+        <List>
+          <List.EmptyView
+            icon={Icon.Document}
+            title="Set Up Raylog Storage"
+            description={
+              message ??
+              "Choose the markdown file Raylog should use in Raycast extension preferences."
+            }
+            actions={
+              <ActionPanel>
+                <Action
+                  title="Open Extension Preferences"
+                  icon={getTaskActionIcon("Open Extension Preferences")}
+                  onAction={openExtensionPreferences}
+                />
+              </ActionPanel>
+            }
+          />
+        </List>
       );
     }
 
@@ -235,7 +225,9 @@ export default function ConfiguredCommand({
                 : "Set Up Raylog Storage"
           }
           description={buildEmptyStateDescription({
-            message: message ?? "Choose a markdown file for Raylog storage.",
+            message:
+              message ??
+              "Choose a markdown file in Raycast extension preferences to continue.",
             configuredNotePath: getConfiguredStorageNotePath(),
             canGenerateDatabase,
             isSchemaError,
@@ -270,76 +262,6 @@ export default function ConfiguredCommand({
   }
 
   return <>{children(notePath)}</>;
-}
-
-function StorageNoteSetupForm({
-  message,
-  onSubmit,
-}: {
-  message: string;
-  onSubmit: (notePath: string) => Promise<void>;
-}) {
-  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
-  const [error, setError] = useState<string>();
-
-  async function handleSubmit() {
-    const selectedPath = selectedPaths[0]?.trim();
-    if (!selectedPath) {
-      setError("Choose a markdown file to continue.");
-      return;
-    }
-
-    setError(undefined);
-
-    try {
-      await onSubmit(selectedPath);
-    } catch (submitError) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Unable to use storage note",
-        message: getRaylogErrorMessage(
-          submitError,
-          "Unable to use the selected storage note.",
-        ),
-      });
-    }
-  }
-
-  return (
-    <Form
-      navigationTitle="Set Up Raylog Storage"
-      actions={
-        <ActionPanel>
-          <Action
-            title="Use File"
-            icon={getTaskActionIcon("Add Task")}
-            onAction={handleSubmit}
-          />
-          <Action
-            title="Open Extension Preferences"
-            icon={getTaskActionIcon("Open Extension Preferences")}
-            onAction={openExtensionPreferences}
-          />
-        </ActionPanel>
-      }
-    >
-      <Form.Description title="Storage" text={message} />
-      <Form.FilePicker
-        id="storageNotePath"
-        title="Storage Note"
-        allowMultipleSelection={false}
-        canChooseDirectories={false}
-        value={selectedPaths}
-        error={error}
-        onChange={(paths) => {
-          setSelectedPaths(paths);
-          if (error && paths[0]?.trim()) {
-            setError(undefined);
-          }
-        }}
-      />
-    </Form>
-  );
 }
 
 function buildEmptyStateDescription({

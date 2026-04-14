@@ -77,9 +77,6 @@ export default function TaskListScreen({
   const [visibleItemCount, setVisibleItemCount] = useState(pageSize);
   const [loadError, setLoadError] = useState<string>();
   const effectiveSelectedFilter = selectedTaskId ? "all" : selectedFilter;
-  const currentNavigationTitle =
-    navigationTitle ??
-    (selectedViewMode === "summary" ? "Task Summary" : "Task List");
 
   const loadTasks = useCallback(async () => {
     const nextTasks = await repository.listTasks();
@@ -224,7 +221,7 @@ export default function TaskListScreen({
         selectedViewMode === "summary" && filteredTasks.length > 0
       }
       selectedItemId={selectedTaskId ?? selectedListItemId}
-      navigationTitle={currentNavigationTitle}
+      navigationTitle={navigationTitle}
       searchBarPlaceholder="Search tasks by header or body"
       onSearchTextChange={setSearchText}
       onSelectionChange={(id) => setSelectedListItemId(id ?? undefined)}
@@ -303,7 +300,6 @@ export default function TaskListScreen({
             notePath={notePath}
             task={task}
             onReload={loadTasks}
-            hideFilters={hideFilters}
             taskLogStatusBehavior={taskLogStatusBehavior}
             onSelectViewMode={handleSelectViewMode}
             viewMode={selectedViewMode}
@@ -320,7 +316,6 @@ interface TaskItemProps {
   onSelectViewMode: (viewMode: TaskListViewMode) => Promise<void> | void;
   task: TaskRecord;
   onReload: () => Promise<void>;
-  hideFilters: boolean;
   taskLogStatusBehavior: TaskLogStatusBehavior;
   viewMode: TaskListViewMode;
   isSelected: boolean;
@@ -383,7 +378,6 @@ function TaskItem({
   onSelectViewMode,
   task,
   onReload,
-  hideFilters,
   taskLogStatusBehavior,
   viewMode,
   isSelected,
