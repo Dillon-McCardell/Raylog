@@ -200,70 +200,15 @@ test("development docs include the complete validated command flow", async () =>
   assert.ok(!diagram.includes("Task Metadata window"));
 });
 
-test("readme includes the simplified user-facing window flow", async () => {
-  const markdown = await readWorkspaceFile("README.md");
-  const diagram = extractSingleMermaidBlock(
-    markdown,
-    "README.md",
-    "### Window Flow",
-  );
-  const parsed = parseMermaidFlow(diagram);
+test("readme highlights task logging and current setup guidance", async () => {
+  const readme = await readWorkspaceFile("README.md");
 
-  assertEdge(parsed, "Raylog", "", "List Tasks");
-  assertEdge(parsed, "Raylog", "", "Add Task");
-  assertEdge(parsed, "Raylog", "", "Refresh Menu Bar");
-  assertEdge(parsed, "List Tasks", "", "Storage note valid");
-  assertEdge(parsed, "Add Task", "", "Storage note valid");
-  assertEdge(parsed, "Storage note valid", "No", "Setup or reset state");
-  assertEdge(parsed, "List Tasks", "Open last used view", "Task Summary");
-  assertEdge(parsed, "List Tasks", "Open last used view", "Task List");
-
-  assertEdge(parsed, "Task Summary", "Enter", "View Task");
-  assertEdge(parsed, "Task Summary", "Cmd+F", "Task List");
-  assertEdge(
-    parsed,
-    "Task Summary",
-    "Cmd+L",
-    "Edit Task Form (new log focused)",
-  );
-  assertEdge(parsed, "Task List", "Enter", "View Task");
-  assertEdge(parsed, "Task List", "Cmd+F", "Task Summary");
-  assertEdge(
-    parsed,
-    "View Task",
-    "Default action: Log Work",
-    "Edit Task Form (new log focused)",
-  );
-  assertEdge(parsed, "View Task", "Cmd+Shift+C", "Complete Task");
-  assertEdge(
-    parsed,
-    "Refresh Menu Bar",
-    "Click current or next task",
-    "Task Submenu",
-  );
-  assertEdge(
-    parsed,
-    "Task Submenu",
-    "Open Task",
-    "View Task",
-  );
-  assertEdge(
-    parsed,
-    "Task Submenu",
-    "Start or Complete",
-    "Lifecycle Action",
-  );
-  assertEdge(parsed, "Refresh Menu Bar", "Open Task List", "List Tasks");
-  assertEdge(parsed, "Task Submenu", "Archive Task", "Lifecycle Action");
-  assertEdge(
-    parsed,
-    "Refresh Menu Bar",
-    "No storage note",
-    "Setup or reset state",
-  );
-
-  assert.ok(!diagram.includes("Cmd+Shift+O"));
-  assert.ok(!diagram.includes("Log Task"));
+  assert.match(readme, /progress logging/i);
+  assert.match(readme, /built-in work logging/i);
+  assert.match(readme, /Cmd\+L/);
+  assert.match(readme, /menu bar feature is inactive until you run `Refresh Menu Bar`/i);
+  assert.match(readme, /"schemaVersion": 1/);
+  assert.doesNotMatch(readme, /```mermaid/);
 });
 
 test("implementation still matches the documented key shortcuts", async () => {
@@ -300,7 +245,6 @@ test("implementation still matches the documented key shortcuts", async () => {
     { modifiers: ["cmd", "shift"], key: "c" },
   );
 
-  assert.match(readme, /"schemaVersion": 1/);
 });
 
 async function readWorkspaceFile(relativePath: string): Promise<string> {
