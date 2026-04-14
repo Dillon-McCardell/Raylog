@@ -62,32 +62,24 @@ export function buildTaskFilterActionSpecs(
   onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void,
 ): TaskMutationActionSpec[] {
   return [
-    createFilterActionSpec("Show All Tasks", createShortcut(["cmd"], "1"), () =>
+    createFilterActionSpec("Show All Tasks", undefined, () =>
       onSelectFilter("all"),
     ),
-    createFilterActionSpec("Show Open Tasks", createShortcut(["cmd"], "2"), () =>
+    createFilterActionSpec("Show Open Tasks", undefined, () =>
       onSelectFilter("open"),
     ),
-    createFilterActionSpec("Show To Do", createShortcut(["cmd"], "3"), () =>
-      onSelectFilter("todo"),
+    createFilterActionSpec("Show To Do", undefined, () => onSelectFilter("todo")),
+    createFilterActionSpec("Show In Progress", undefined, () =>
+      onSelectFilter("in_progress"),
     ),
-    createFilterActionSpec(
-      "Show In Progress",
-      createShortcut(["cmd"], "4"),
-      () => onSelectFilter("in_progress"),
-    ),
-    createFilterActionSpec("Show Due Soon", createShortcut(["cmd"], "5"), () =>
+    createFilterActionSpec("Show Due Soon", undefined, () =>
       onSelectFilter("due_soon"),
     ),
-    createFilterActionSpec(
-      "Show Done Tasks",
-      createShortcut(["cmd"], "6"),
-      () => onSelectFilter("done"),
+    createFilterActionSpec("Show Done Tasks", undefined, () =>
+      onSelectFilter("done"),
     ),
-    createFilterActionSpec(
-      "Show Archived Tasks",
-      createShortcut(["cmd"], "7"),
-      () => onSelectFilter("archived"),
+    createFilterActionSpec("Show Archived Tasks", undefined, () =>
+      onSelectFilter("archived"),
     ),
   ];
 }
@@ -228,19 +220,6 @@ function buildLifecycleActionSpecs(
 ): TaskMutationActionSpec[] {
   const specs: TaskMutationActionSpec[] = [];
 
-  if (options.task.status === "todo" || options.task.status === "in_progress") {
-    specs.push({
-      kind: "mutation",
-      title: "Complete Task",
-      mutation: "complete",
-      shortcut: createShortcut(["cmd", "shift"], "c"),
-      run: async () => {
-        await options.repository.completeTask(options.task.id);
-        await options.onReload();
-      },
-    });
-  }
-
   if (options.task.status === "todo") {
     specs.push({
       kind: "mutation",
@@ -249,6 +228,19 @@ function buildLifecycleActionSpecs(
       shortcut: createShortcut(["cmd"], "s"),
       run: async () => {
         await options.repository.startTask(options.task.id);
+        await options.onReload();
+      },
+    });
+  }
+
+  if (options.task.status === "todo" || options.task.status === "in_progress") {
+    specs.push({
+      kind: "mutation",
+      title: "Complete Task",
+      mutation: "complete",
+      shortcut: createShortcut(["cmd", "shift"], "c"),
+      run: async () => {
+        await options.repository.completeTask(options.task.id);
         await options.onReload();
       },
     });
@@ -297,7 +289,7 @@ function buildLifecycleActionSpecs(
 
 function createFilterActionSpec(
   title: string,
-  shortcut: Keyboard.Shortcut,
+  shortcut: Keyboard.Shortcut | undefined,
   run: () => Promise<void> | void,
 ): TaskMutationActionSpec {
   return {

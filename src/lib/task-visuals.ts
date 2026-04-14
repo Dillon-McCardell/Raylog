@@ -102,20 +102,20 @@ export function getTaskActionIcon(title: string): Image.ImageLike | undefined {
     case "Open Task":
       return Icon.Eye;
     case "Log Work":
-      return withTint(Icon.Pencil, Color.Blue);
+      return Icon.BulletPoints;
     case "Edit Task":
       return Icon.Pencil;
     case "Add Task":
     case "Create Task":
-      return withTint(Icon.Plus, Color.Blue);
+      return Icon.Plus;
     case "Complete Task":
     case "Show Done Tasks":
       return withTint(Icon.CheckCircle, Color.Green);
     case "Start Task":
     case "Show In Progress":
-      return withTint(Icon.Play, Color.Blue);
+      return Icon.Play;
     case "Reopen Task":
-      return withTint(Icon.ArrowCounterClockwise, Color.Orange);
+      return Icon.ArrowCounterClockwise;
     case "Archive Task":
     case "Show Archived Tasks":
       return withTint(Icon.Box, Color.SecondaryText);
@@ -131,11 +131,11 @@ export function getTaskActionIcon(title: string): Image.ImageLike | undefined {
       return withTint(Icon.Calendar, Color.Orange);
     case "Reload Task":
     case "Reload Tasks":
-      return Icon.ArrowClockwise;
+      return withTint(Icon.ArrowClockwise, Color.SecondaryText);
     case "Open Extension Preferences":
-      return Icon.Gear;
+      return withTint(Icon.Gear, Color.SecondaryText);
     case "Save Task":
-      return withTint(Icon.SaveDocument, Color.Blue);
+      return Icon.SaveDocument;
     default:
       return undefined;
   }

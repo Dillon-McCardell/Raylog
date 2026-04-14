@@ -27,6 +27,7 @@ import {
   RaylogParseError,
   RaylogSchemaError,
   resetStorageNote,
+  validateStorageNotePath,
 } from "../lib/storage";
 
 interface ConfiguredCommandProps {
@@ -180,8 +181,23 @@ export default function ConfiguredCommand({
   }
 
   async function handleConfigureStorage(notePath: string) {
-    setConfiguredStorageNotePath(notePath);
-    await loadConfiguredNote();
+    const trimmedPath = notePath.trim();
+    setIsLoading(true);
+
+    try {
+      await validateStorageNotePath(trimmedPath);
+      await ensureStorageNote(trimmedPath);
+      setConfiguredStorageNotePath(trimmedPath);
+      setNotePath(trimmedPath);
+      setMessage(undefined);
+      setCanReset(false);
+      setCanGenerateDatabase(false);
+      setIsSchemaError(false);
+      setIsCorruptedStorage(false);
+      setCurrentSchemaVersion(undefined);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   if (isLoading) {
@@ -294,10 +310,10 @@ function StorageNoteSetupForm({
       navigationTitle="Set Up Raylog Storage"
       actions={
         <ActionPanel>
-          <Action.SubmitForm
+          <Action
             title="Use File"
             icon={getTaskActionIcon("Add Task")}
-            onSubmit={handleSubmit}
+            onAction={handleSubmit}
           />
           <Action
             title="Open Extension Preferences"

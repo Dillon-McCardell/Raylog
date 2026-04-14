@@ -9,7 +9,6 @@ import {
 } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  buildTaskFilterActionSpecs,
   buildTaskListActionSpecs,
   type TaskActionSpec,
 } from "./task-action-specs";
@@ -262,10 +261,6 @@ export default function TaskListScreen({
           }
           actions={
             <ActionPanel>
-              {!hideFilters && (
-                <TaskFilterActions onSelectFilter={handleSelectFilter} />
-              )}
-
               <ActionPanel.Section>
                 <ViewModeAction
                   viewMode={selectedViewMode}
@@ -310,7 +305,6 @@ export default function TaskListScreen({
             onReload={loadTasks}
             hideFilters={hideFilters}
             taskLogStatusBehavior={taskLogStatusBehavior}
-            onSelectFilter={handleSelectFilter}
             onSelectViewMode={handleSelectViewMode}
             viewMode={selectedViewMode}
             isSelected={task.id === (selectedTaskId ?? selectedListItemId)}
@@ -323,7 +317,6 @@ export default function TaskListScreen({
 
 interface TaskItemProps {
   notePath: string;
-  onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void;
   onSelectViewMode: (viewMode: TaskListViewMode) => Promise<void> | void;
   task: TaskRecord;
   onReload: () => Promise<void>;
@@ -385,23 +378,8 @@ function TaskFilterDropdown({
   );
 }
 
-function TaskFilterActions({
-  onSelectFilter,
-}: {
-  onSelectFilter: (filter: TaskViewFilter) => Promise<void> | void;
-}) {
-  return (
-    <ActionPanel.Section>
-      {buildTaskFilterActionSpecs(onSelectFilter).map((spec) => (
-        <RenderedAction key={spec.title} spec={spec} />
-      ))}
-    </ActionPanel.Section>
-  );
-}
-
 function TaskItem({
   notePath,
-  onSelectFilter,
   onSelectViewMode,
   task,
   onReload,
@@ -451,9 +429,6 @@ function TaskItem({
               onSelectViewMode={onSelectViewMode}
             />
           </ActionPanel.Section>
-          {!hideFilters && (
-            <TaskFilterActions onSelectFilter={onSelectFilter} />
-          )}
           <ActionPanel.Section>
             <Action
               title="Open Extension Preferences"

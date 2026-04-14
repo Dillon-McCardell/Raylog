@@ -25,7 +25,6 @@ Use **List Tasks** to manage work from one command.
 - Filter by `All Tasks`, `Open Tasks`, `To Do`, `In Progress`, `Due Soon`, `Done`, or `Archived`
 - `Open Tasks` includes `To Do` and `In Progress`; `All Tasks` also includes `Done`
 - Search task headers and bodies within the active view
-- Jump between task views with `Cmd-1` through `Cmd-7`
 - Use `Cmd+F` to switch between `Task Summary` and the full-width `Task List`
 - The command reopens in the last list layout you used
 - `Task Summary` shows the task body and work logs in the detail pane
