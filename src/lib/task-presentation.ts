@@ -86,5 +86,5 @@ function buildWorkLogMarkdown(
       )}\``
     : `\`${createdLabel}\``;
 
-  return `🗂 **Work Log ${index + 1}**\n\n${workLogTimeline}\n\n${workLog.body}`;
+  return `📝 **Work Log ${index + 1}**\n\n${workLogTimeline}\n\n${workLog.body}`;
 }
