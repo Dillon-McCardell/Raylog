@@ -4,6 +4,7 @@ import { buildTaskListActionSpecs, type TaskActionSpec } from "./task-action-spe
 import { getDueSoonDays, getEnabledListMetadata } from "../lib/config";
 import { fromCanonicalDateString } from "../lib/date";
 import { getRaylogErrorMessage, isRaylogCorruptionError, RaylogRepository } from "../lib/storage";
+import { buildTaskListDisplayText } from "../lib/task-list-display";
 import {
   filterTasks,
   getTaskFilterDescription,
@@ -311,6 +312,10 @@ function TaskItem({
     () => buildTaskListAccessories(task, enabledListMetadata, dueSoonDays),
     [dueSoonDays, enabledListMetadata, task],
   );
+  const listDisplayText = useMemo(
+    () => buildTaskListDisplayText(task.header, task.body, listAccessories.length),
+    [listAccessories.length, task.body, task.header],
+  );
   const actionSpecs = buildTaskListActionSpecs({
     notePath,
     repository,
@@ -323,8 +328,8 @@ function TaskItem({
     <List.Item
       id={task.id}
       icon={getTaskStatusIcon(task.status)}
-      title={task.header}
-      subtitle={viewMode === "list" ? getTaskBodyPreview(task.body, listAccessories.length) : undefined}
+      title={listDisplayText.title}
+      subtitle={viewMode === "list" ? listDisplayText.subtitle : undefined}
       accessories={viewMode === "list" ? listAccessories : []}
       detail={
         viewMode === "summary" && isSelected ? (
@@ -401,16 +406,6 @@ function createCompletedDateAccessory(completedAt: string): List.Item.Accessory 
     text: formattedDate,
     tooltip: `Completed: ${formattedDate}`,
   };
-}
-
-function getTaskBodyPreview(body: string, accessoryCount = 0): string {
-  const preview = body.replace(/\s+/g, " ").trim();
-  if (preview.length === 0) {
-    return "No body";
-  }
-
-  const maxLength = accessoryCount > 0 ? 40 : 72;
-  return preview.length > maxLength ? `${preview.slice(0, maxLength - 1).trimEnd()}…` : preview;
 }
 
 function formatCompletedDate(value: string | null): string {

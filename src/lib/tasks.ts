@@ -53,6 +53,8 @@ const TASK_FILTER_DESCRIPTIONS: Record<TaskViewFilter, string> = {
 // Pure task utilities also run in tests and non-UI paths, so they keep the same
 // fallback here for callers that do not read preferences first.
 export const DEFAULT_DUE_SOON_DAYS = 2;
+// Start dates should always occupy the leftmost slot in the list metadata stack.
+const START_INDICATOR_PRIORITY = -1;
 
 const OPEN_STATUS_PRIORITY: Record<TaskStatus, number> = {
   todo: 0,
@@ -201,16 +203,18 @@ export function getTaskListIndicators(
   dueSoonDays = DEFAULT_DUE_SOON_DAYS,
 ): TaskListIndicator[] {
   const indicators: TaskListIndicator[] = [];
+  let isShowingDueIndicator = false;
 
   if (enabledMetadata.dueDate) {
     const dueIndicator = getDueDateIndicator(task.dueDate, dueSoonDays);
     if (dueIndicator !== null && (enabledMetadata.pastDue || dueIndicator.tone !== "critical")) {
       indicators.push(dueIndicator);
+      isShowingDueIndicator = true;
     }
   }
 
   if (enabledMetadata.startDate) {
-    const startIndicator = getStartDateIndicator(task.startDate);
+    const startIndicator = getStartDateIndicator(task.startDate, isShowingDueIndicator ? task.dueDate : null);
     if (startIndicator !== null) {
       indicators.push(startIndicator);
     }
@@ -336,9 +340,17 @@ function getDueDateIndicator(value: string | null | undefined, dueSoonDays: numb
   };
 }
 
-function getStartDateIndicator(value?: string | null): TaskListIndicator | null {
+function getStartDateIndicator(
+  value: string | null | undefined,
+  dueDateValue?: string | null,
+): TaskListIndicator | null {
   const startDate = parseTaskDate(value);
   if (!startDate) {
+    return null;
+  }
+
+  const dueDate = parseTaskDate(dueDateValue);
+  if (dueDate && differenceInCalendarDays(startDate, dueDate) === 0) {
     return null;
   }
 
@@ -349,7 +361,7 @@ function getStartDateIndicator(value?: string | null): TaskListIndicator | null 
 
   return {
     kind: "start",
-    priority: 2,
+    priority: START_INDICATOR_PRIORITY,
     text: formatRelativeIndicator(daysUntilStart, startDate),
     tone: "info",
     tooltip: buildCountdownTooltip("Start", daysUntilStart, startDate),

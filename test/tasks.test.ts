@@ -265,12 +265,12 @@ test("shows only the future start indicator when both dates are enabled", () => 
   );
 
   assert.equal(indicators.length, 2);
-  assert.equal(indicators[0]?.kind, "due");
-  assert.equal(indicators[0]?.tone, "warning");
-  assert.equal(indicators[0]?.text, "3d");
-  assert.equal(indicators[1]?.kind, "start");
-  assert.equal(indicators[1]?.tone, "info");
-  assert.equal(indicators[1]?.text, "Tomorrow");
+  assert.equal(indicators[0]?.kind, "start");
+  assert.equal(indicators[0]?.tone, "info");
+  assert.equal(indicators[0]?.text, "Tomorrow");
+  assert.equal(indicators[1]?.kind, "due");
+  assert.equal(indicators[1]?.tone, "warning");
+  assert.equal(indicators[1]?.text, "3d");
 });
 
 test("shows only the due indicator when the start date is in the past", () => {
@@ -295,6 +295,44 @@ test("shows only the due indicator when the start date is in the past", () => {
       tone: indicator.tone,
     })),
     [{ kind: "due", text: "5d", tone: "warning" }],
+  );
+});
+
+test("shows only the due indicator when start and due dates are the same day", () => {
+  const sameDay = new Date();
+  sameDay.setDate(sameDay.getDate() + 1);
+
+  const indicators = getTaskListIndicators(
+    createTask({
+      dueDate: sameDay.toISOString(),
+      startDate: sameDay.toISOString(),
+    }),
+    { dueDate: true, pastDue: true, startDate: true },
+    7,
+  );
+
+  assert.deepEqual(
+    indicators.map((indicator) => indicator.kind),
+    ["due"],
+  );
+});
+
+test("shows same-day start indicator when due indicators are disabled", () => {
+  const sameDay = new Date();
+  sameDay.setDate(sameDay.getDate() + 1);
+
+  const indicators = getTaskListIndicators(
+    createTask({
+      dueDate: sameDay.toISOString(),
+      startDate: sameDay.toISOString(),
+    }),
+    { dueDate: false, pastDue: true, startDate: true },
+    7,
+  );
+
+  assert.deepEqual(
+    indicators.map((indicator) => indicator.kind),
+    ["start"],
   );
 });
 
