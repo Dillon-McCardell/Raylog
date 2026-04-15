@@ -1,10 +1,18 @@
 import { Action, ActionPanel, Icon, List, Toast, openExtensionPreferences, showToast } from "@raycast/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildTaskListActionSpecs, type TaskActionSpec } from "./task-action-specs";
-import { getDueSoonDays } from "../lib/config";
-import { formatTaskDate, fromCanonicalDateString } from "../lib/date";
+import { getDueSoonDays, getEnabledListMetadata } from "../lib/config";
+import { fromCanonicalDateString } from "../lib/date";
 import { getRaylogErrorMessage, isRaylogCorruptionError, RaylogRepository } from "../lib/storage";
-import { filterTasks, getTaskFilterDescription, getTaskFilterLabel, sortTasks } from "../lib/tasks";
+import {
+  filterTasks,
+  getTaskFilterDescription,
+  getTaskFilterLabel,
+  getTaskListIndicators,
+  sortTasks,
+  type EnabledListMetadata,
+  type TaskListIndicator,
+} from "../lib/tasks";
 import { getTaskActionIcon, getTaskFilterIcon, getTaskIndicatorIcon, getTaskStatusIcon } from "../lib/task-visuals";
 import { buildTaskDetailMarkdown, matchesTaskSearch } from "../lib/task-presentation";
 import type { TaskListViewMode, TaskLogStatusBehavior, TaskRecord, TaskViewFilter } from "../lib/types";
@@ -34,6 +42,7 @@ export default function TaskListScreen({
   const pageSize = 200;
   const repository = useMemo(() => new RaylogRepository(notePath), [notePath]);
   const dueSoonDays = getDueSoonDays();
+  const enabledListMetadata = useMemo(() => getEnabledListMetadata(), []);
   const [isLoading, setIsLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [searchText, setSearchText] = useState("");
@@ -129,7 +138,7 @@ export default function TaskListScreen({
   const filteredTasks = useMemo(() => {
     if (taskIds) {
       const normalizedSearch = searchText.trim().toLowerCase();
-      return sortTasks(scopedTasks).filter((task) => {
+      return sortTasks(scopedTasks, dueSoonDays).filter((task) => {
         if (!normalizedSearch) {
           return true;
         }
@@ -223,6 +232,8 @@ export default function TaskListScreen({
             notePath={notePath}
             repository={repository}
             task={task}
+            dueSoonDays={dueSoonDays}
+            enabledListMetadata={enabledListMetadata}
             onReload={loadTasks}
             taskLogStatusBehavior={taskLogStatusBehavior}
             onSelectViewMode={handleSelectViewMode}
@@ -238,6 +249,8 @@ export default function TaskListScreen({
 interface TaskItemProps {
   notePath: string;
   repository: RaylogRepository;
+  dueSoonDays: number;
+  enabledListMetadata: EnabledListMetadata;
   onSelectViewMode: (viewMode: TaskListViewMode) => Promise<void> | void;
   task: TaskRecord;
   onReload: () => Promise<void>;
@@ -285,6 +298,8 @@ function TaskFilterDropdown({
 function TaskItem({
   notePath,
   repository,
+  dueSoonDays,
+  enabledListMetadata,
   onSelectViewMode,
   task,
   onReload,
@@ -292,7 +307,10 @@ function TaskItem({
   viewMode,
   isSelected,
 }: TaskItemProps) {
-  const listAccessories = useMemo(() => buildTaskListAccessories(task), [task]);
+  const listAccessories = useMemo(
+    () => buildTaskListAccessories(task, enabledListMetadata, dueSoonDays),
+    [dueSoonDays, enabledListMetadata, task],
+  );
   const actionSpecs = buildTaskListActionSpecs({
     notePath,
     repository,
@@ -355,98 +373,34 @@ function ViewModeAction({
   );
 }
 
-function buildTaskListAccessories(task: TaskRecord): List.Item.Accessory[] {
-  const visibleDateKind = getVisibleDateKind(task);
-  if (!visibleDateKind) {
-    return [];
+function buildTaskListAccessories(
+  task: TaskRecord,
+  enabledMetadata: EnabledListMetadata,
+  dueSoonDays: number,
+): List.Item.Accessory[] {
+  if (task.status === "done" && task.completedAt) {
+    return [createCompletedDateAccessory(task.completedAt)];
   }
 
-  return [createDateAccessory(visibleDateKind, getDateValue(task, visibleDateKind))];
+  return getTaskListIndicators(task, enabledMetadata, dueSoonDays).map(createIndicatorAccessory);
 }
 
-function createDateAccessory(kind: "start" | "due" | "completed", value: string | null): List.Item.Accessory {
-  const tone = getDateTone(kind, value);
-  const formattedDate = kind === "completed" ? formatCompletedDate(value) : formatTaskDate(value);
-
+function createIndicatorAccessory(indicator: TaskListIndicator): List.Item.Accessory {
   return {
-    icon: getTaskIndicatorIcon(kind, tone),
-    text: formattedDate,
-    tooltip:
-      kind === "start"
-        ? `Start Date: ${formattedDate}`
-        : kind === "due"
-          ? `Due Date: ${formattedDate}`
-          : `Completed: ${formattedDate}`,
+    icon: getTaskIndicatorIcon(indicator.kind, indicator.tone),
+    text: indicator.text,
+    tooltip: indicator.tooltip,
   };
 }
 
-function getDateTone(
-  kind: "start" | "due" | "completed",
-  value: string | null,
-): "critical" | "warning" | "scheduled" | "inactive" | "info" | "success" {
-  const parsed = fromCanonicalDateString(value);
-  if (!parsed) {
-    return "inactive";
-  }
+function createCompletedDateAccessory(completedAt: string): List.Item.Accessory {
+  const formattedDate = formatCompletedDate(completedAt);
 
-  if (kind === "start") {
-    return "scheduled";
-  }
-
-  if (kind === "completed") {
-    return "success";
-  }
-
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const dueDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-  const differenceInDays = (dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24);
-
-  if (differenceInDays < 0) {
-    return "critical";
-  }
-
-  if (differenceInDays <= 7) {
-    return "warning";
-  }
-
-  return "scheduled";
-}
-
-function getVisibleDateKind(task: TaskRecord): "start" | "due" | "completed" | undefined {
-  if (task.status === "done" && task.completedAt) {
-    return "completed";
-  }
-
-  if (isFutureDate(task.startDate)) {
-    return "start";
-  }
-
-  return task.dueDate ? "due" : undefined;
-}
-
-function getDateValue(task: TaskRecord, kind: "start" | "due" | "completed"): string | null {
-  switch (kind) {
-    case "start":
-      return task.startDate;
-    case "due":
-      return task.dueDate;
-    case "completed":
-      return task.completedAt;
-  }
-}
-
-function isFutureDate(value: string | null): boolean {
-  const parsed = fromCanonicalDateString(value);
-  if (!parsed) {
-    return false;
-  }
-
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const candidateDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-
-  return candidateDate.getTime() > startOfToday.getTime();
+  return {
+    icon: getTaskIndicatorIcon("completed", "success"),
+    text: formattedDate,
+    tooltip: `Completed: ${formattedDate}`,
+  };
 }
 
 function getTaskBodyPreview(body: string, accessoryCount = 0): string {
